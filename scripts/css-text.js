@@ -16,12 +16,18 @@ const id = '\0notify-css';
 /** The browsers aesweets supports (its `build/js.ts`), the first consumer. */
 const target = ['chrome100', 'firefox100', 'safari15.4'];
 
+/** esbuild leaves the fallbacks in `var()` as written; these have no strings in them. */
+const tightFallbacks = (css) =>
+  css.replaceAll(', ', ',').replaceAll(' / ', '/').replaceAll(') )', '))');
+
 export function minifiedCss() {
-  return transformSync(readFileSync(file, 'utf8'), {
-    loader: 'css',
-    minify: true,
-    target,
-  }).code.trim();
+  return tightFallbacks(
+    transformSync(readFileSync(file, 'utf8'), {
+      loader: 'css',
+      minify: true,
+      target,
+    }).code.trim()
+  );
 }
 
 export function cssText() {

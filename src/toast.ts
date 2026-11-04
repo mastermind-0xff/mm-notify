@@ -20,20 +20,15 @@ const FLASH_KEY = 'mm-notify.flash';
 const OUT = 'mm-notify-out';
 const SVG = 'http://www.w3.org/2000/svg';
 
-/** A dot, as the alert and neutral icons have one. */
-const dot = (cy: string): readonly [string, Record<string, string>] => [
-  'circle',
-  { cx: '8.87', cy, r: '0.75', fill: 'currentColor', stroke: 'none' },
-];
-
-/** The message icons (20 × 20): check, cross, exclamation, info, each in a circle. */
-const ICONS: Readonly<
-  Record<ToastKind, readonly (readonly [string, Record<string, string>])[]>
-> = {
-  success: [['polyline', { points: '4.72 7.8 8.83 11.91 17.36 1.17' }]],
-  error: [['path', { d: 'M4.88 4.88l7.99 7.99M4.88 12.87l7.99-7.99' }]],
-  alert: [['path', { d: 'M8.87 3.67v6.97' }], dot('14.08')],
-  neutral: [['path', { d: 'M8.87 14.08V7.11' }], dot('3.66')],
+/**
+ * The message icons (20 × 20), each in a circle: check, cross, exclamation, info.
+ * A dot is a line of no length: its round cap draws it.
+ */
+const ICONS: Readonly<Record<ToastKind, string>> = {
+  success: 'M4.72 7.8 8.83 11.91 17.36 1.17',
+  error: 'M4.88 4.88l7.99 7.99M4.88 12.87l7.99-7.99',
+  alert: 'M8.87 3.67v6.97M8.87 14.08h0',
+  neutral: 'M8.87 14.08V7.11M8.87 3.66h0',
 };
 
 function shape(
@@ -48,61 +43,97 @@ function shape(
 
 function icon(kind: ToastKind): SVGElement {
   const svg = shape('svg', { viewBox: '-1 -1 20 20', 'aria-hidden': 'true' });
-  svg.append(shape('circle', { cx: '8.87', cy: '8.87', r: '8.87' }));
-  for (const [tag, attributes] of ICONS[kind])
-    svg.append(shape(tag, attributes));
+  svg.append(
+    shape('circle', { cx: '8.87', cy: '8.87', r: '8.87' }),
+    shape('path', { d: ICONS[kind] })
+  );
   return svg;
 }
 
+function makeButton(className: string, click: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  button.addEventListener('click', click);
+  return button;
+}
+
+interface Shown {
+  readonly item: HTMLElement;
+  /** Starts or stops its timer, for what holds it now. */
+  readonly sync: () => void;
+}
+
+/** What is on screen or about to be, oldest first. */
+let shown: Shown[] = [];
+
 let region: HTMLElement | undefined;
+/** The live region: only messages, or the button below would be read out as one. */
+let list!: HTMLElement;
+let clearAll!: HTMLButtonElement;
 
-/** What is on screen or about to be, by text: the same text replaces it. */
-const current = new Map<string, HTMLElement>();
+function showClearAll(): void {
+  clearAll.hidden = shown.length < config.clearAllFrom;
+  clearAll.textContent = config.clearAllLabel;
+}
 
-/** The live region (created once, so screen readers notice what's added to it later). */
-function liveRegion(): HTMLElement {
-  if (region?.isConnected) return region;
+/** The region, created once, so screen readers notice what's added to its list later. */
+function ownRegion(): void {
+  if (region?.isConnected) return;
   injectStyles();
+  // Taken out of the page: what was in it is gone, what waits for its frame isn't.
+  shown = shown.filter(({ item }) => !item.parentElement);
   region = document.createElement('div');
   region.className = 'mm-notify-region';
   region.setAttribute('popover', 'manual');
-  region.setAttribute('aria-live', 'polite');
+  list = document.createElement('div');
+  list.className = 'mm-notify-list';
+  list.setAttribute('aria-live', 'polite');
+  clearAll = makeButton('mm-notify-clear', () => {
+    [...shown].forEach(close);
+  });
+  showClearAll();
+  region.append(list, clearAll);
   document.body.append(region);
-  return region;
 }
 
 /**
- * Opens or closes the popover. Older browsers have no popover (the selector
- * alone is a SyntaxError there): the region stays a plain fixed element, which
- * only loses the top layer.
+ * Opens or closes the popover. Older browsers have no popover: the region stays
+ * a plain fixed element, which only loses the top layer. The first browsers with
+ * one throw when asked for the state it is already in, and all do for a region
+ * taken out of the page: nothing to do then either.
  */
-function setOpen(box: HTMLElement, open: boolean): void {
-  if (!('showPopover' in box) || box.matches(':popover-open') === open) return;
-  if (open) box.showPopover();
-  else box.hidePopover();
+function setOpen(open: boolean): void {
+  try {
+    region?.togglePopover(open);
+  } catch {
+    // See above.
+  }
 }
 
-function close(item: HTMLElement, text: string): void {
-  if (item.classList.contains(OUT)) return;
+function close(entry: Shown): void {
+  const at = shown.indexOf(entry);
+  if (at < 0) return;
+  shown.splice(at, 1);
+  const { item } = entry;
   item.classList.add(OUT);
-  current.delete(text);
   const remove = (): void => {
     item.remove();
-    if (region?.childElementCount === 0) setOpen(region, false);
+    if (!list.childElementCount) setOpen(false);
   };
-  item.addEventListener('transitionend', remove, { once: true });
-  setTimeout(remove, 400); // reduced motion: no transition, no event
+  setTimeout(remove, 300); // as long as the CSS transition, which reduced motion drops
+  showClearAll();
+  if (config.sequential && !at) shown[0]?.sync();
 }
 
-/** Shows a notification; the same text twice in a row restarts the first one instead. */
+/** Shows a notification. Every call shows its own, the same text too. */
 export function toast(
   text: string,
   kind: ToastKind = 'neutral',
   options: ToastOptions = {}
 ): void {
-  if (text === '') return;
-  const earlier = current.get(text);
-  if (earlier) close(earlier, text);
+  if (!text) return;
+  ownRegion();
 
   const item = document.createElement('div');
   item.className = `mm-notify mm-notify-${kind}`;
@@ -110,47 +141,53 @@ export function toast(
   else if (kind === 'error') item.setAttribute('role', 'alert');
   const message = document.createElement('p');
   message.textContent = text;
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'mm-notify-close';
-  button.setAttribute('aria-label', options.closeLabel ?? config.closeLabel);
-  button.addEventListener('click', () => {
-    close(item, text);
+  const button = makeButton('mm-notify-close', () => {
+    close(entry);
   });
+  button.setAttribute('aria-label', options.closeLabel ?? config.closeLabel);
   item.append(icon(kind), message, button);
-  current.set(text, item);
 
-  // Counts down only while neither the pointer nor the focus is on it.
+  // Counts down only on the page, while neither the pointer nor the focus is on
+  // it, and when sequential only as the oldest.
   const duration = options.timeoutMs ?? config.durations[kind];
-  let hovered = false;
-  let focused = false;
+  let holds = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const sync = (): void => {
-    clearTimeout(timer);
-    if (duration > 0 && !hovered && !focused)
-      timer = setTimeout(() => {
-        close(item, text);
-      }, duration);
+  const entry: Shown = {
+    item,
+    sync() {
+      clearTimeout(timer);
+      if (
+        duration > 0 &&
+        !holds &&
+        item.isConnected &&
+        (!config.sequential || shown[0] === entry)
+      )
+        timer = setTimeout(() => {
+          close(entry);
+        }, duration);
+    },
   };
-  const on = (event: string, change: () => void): void => {
+  const hold = (event: string, by: number): void => {
     item.addEventListener(event, () => {
-      change();
-      sync();
+      holds += by;
+      entry.sync();
     });
   };
-  on('pointerenter', () => (hovered = true));
-  on('pointerleave', () => (hovered = false));
-  on('focusin', () => (focused = true));
-  on('focusout', () => (focused = false));
+  hold('pointerenter', 1);
+  hold('pointerleave', -1);
+  hold('focusin', 1);
+  hold('focusout', -1);
 
-  setOpen(liveRegion(), true);
+  shown.push(entry);
+  showClearAll();
+  setOpen(true);
   // The next frame: an addition to an existing live region is what screen readers announce.
   requestAnimationFrame(() => {
-    if (item.classList.contains(OUT)) return; // replaced in this same frame
-    const box = liveRegion();
-    box.append(item);
-    setOpen(box, true); // an earlier toast's removal may have closed it since
-    sync();
+    if (item.classList.contains(OUT)) return; // cleared before its frame
+    ownRegion();
+    list.append(item);
+    setOpen(true); // an earlier toast's removal may have closed it since
+    entry.sync();
   });
 }
 
@@ -173,22 +210,22 @@ export function flash(
 
 /** Shows the notification left by `flash` on the previous page, once. */
 export function showFlash(key = FLASH_KEY): void {
-  let saved: unknown;
+  let saved: { text?: unknown; kind?: unknown };
   try {
     const stored = sessionStorage.getItem(key);
     // Before parsing: a broken value must not stay and load this module on every page.
     sessionStorage.removeItem(key);
-    saved = JSON.parse(stored ?? 'null');
+    // `Object`: a stored null, number or string then simply has no text.
+    saved = Object(JSON.parse(stored ?? '')) as typeof saved;
   } catch {
     return;
   }
-  if (typeof saved !== 'object' || saved === null) return;
-  const { text, kind } = saved as { text?: unknown; kind?: unknown };
-  if (typeof text !== 'string') return;
-  toast(
-    text,
-    typeof kind === 'string' && Object.hasOwn(config.durations, kind) ?
-      (kind as ToastKind)
-    : 'neutral'
-  );
+  const { text, kind } = saved;
+  if (typeof text === 'string')
+    toast(
+      text,
+      typeof kind === 'string' && Object.hasOwn(config.durations, kind) ?
+        (kind as ToastKind)
+      : 'neutral'
+    );
 }

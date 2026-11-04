@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 2.4 KB minified and gzipped, CSS included. No dependencies.
+- 2.5 KB minified and gzipped, CSS included. No dependencies.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -22,23 +22,26 @@ Work in progress: nothing is published yet.
 // The page's eager code. 123 bytes, and it loads nothing else.
 import { hasFlash } from '@mmutils/notify/has-flash';
 
+let loading;
+const load = () => (loading ??= import('@mmutils/notify'));
+
 // A message left by the previous page? Only then the rest is fetched.
 if (hasFlash()) {
-  void import('@mmutils/notify').then(({ showFlash }) => {
+  void load().then(({ showFlash }) => {
     showFlash();
   });
 }
 
 // Whenever there is something to say.
 export function notify(text, kind) {
-  void import('@mmutils/notify').then(({ toast }) => {
+  void load().then(({ toast }) => {
     toast(text, kind);
   });
 }
 
 // Before a redirect. The next page needs this module anyway to show the message.
 export function goTo(url, text) {
-  void import('@mmutils/notify')
+  void load()
     .then(({ flash }) => {
       flash(text);
     })
@@ -49,8 +52,10 @@ export function goTo(url, text) {
 ```
 
 A bundler that splits code (esbuild with `splitting`, for one) turns the dynamic
-import into a lazy chunk. A plain `import { toast } from '@mmutils/notify'` works too,
-inside code that is already lazy.
+import into a lazy chunk. Keep the one promise: separate `import()` calls may resolve
+in any order while the file loads, and messages shown together would change places
+(seen in Chrome). A plain `import { toast } from '@mmutils/notify'` works too, inside
+code that is already lazy.
 
 Importing on the server is safe. There `flash` and `showFlash` do nothing and
 `hasFlash` says `false`; `toast` needs a document, so call it only in the browser.
@@ -68,10 +73,16 @@ text shows nothing. Options:
 | `announce`   | `true`              | `false` hides it from screen readers, when a status line says the same. |
 | `closeLabel` | `Close the message` | The close button's label.                                               |
 
-- Default durations: success and neutral 5 s, alert 8 s, error 10 s.
-- The same text again replaces the first and restarts the time.
+- Default durations: success and neutral 5 s. Alert and error stay until closed.
+- Every call shows its own message, the same text too: an action can happen twice.
 - The time runs only while neither the pointer nor the focus is on the message.
 - The text goes through `textContent`. There are no HTML messages.
+
+From three messages a **Clear all** button appears, which closes them all, those that
+stay until closed too. It sits below the messages, or above them with the bottom
+positions (`--notify-clear-order: -1`, see "Position"). When the messages don't fit the
+window they scroll, under the wheel or a finger on a message, and the button stays on
+screen.
 
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
@@ -92,12 +103,29 @@ import { configure } from '@mmutils/notify';
 
 configure({
   closeLabel: 'Fermer',
-  durations: { error: 0 }, // errors stay until closed
+  clearAllLabel: 'Tout effacer',
+  durations: { error: 10_000 }, // errors close by themselves after 10 s
+  sequential: true,
   injectCss: false, // see "The CSS"
 });
 
 export { flash, showFlash, toast } from '@mmutils/notify';
 ```
+
+| Option          | Default             | Meaning                                                     |
+| --------------- | ------------------- | ----------------------------------------------------------- |
+| `closeLabel`    | `Close the message` | The close button's label, for screen readers.               |
+| `clearAllLabel` | `Clear all`         | The clear-all button's text.                                |
+| `clearAllFrom`  | `3`                 | How many messages bring up that button. `Infinity`: never.  |
+| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed. |
+| `sequential`    | `false`             | One timer at a time, see below.                             |
+| `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".  |
+
+**`sequential`:** normally every message counts down at once. With `true` one timer
+runs at a time, oldest message first: three messages of 5 s close at 5, 10 and 15 s. A
+message's full time starts when the one before has closed, for whatever reason. A
+message that stays until closed holds those behind it until someone closes it; those
+ahead of it have their turn first. Hovering or focusing the running one holds the line.
 
 ## The look
 
@@ -118,6 +146,8 @@ cascade order.
 | `--notify-alert`, `--notify-alert-glow`                              | `#ffd556`, `rgb(255 213 86 / 0.3)` |
 | `--notify-neutral`, `--notify-neutral-glow`                          | `#3ec9ff`, `rgb(62 201 255 / 0.3)` |
 | `--notify-radius`, `--notify-font-size`                              | `9px`, `1rem`                      |
+| `--notify-clear`, `--notify-clear-color`: the clear-all button       | `#111`, `#fff`                     |
+| `--notify-clear-order`: `-1` puts that button above the messages     | `0`                                |
 
 The default colors keep 4.5:1 with the dark text; white text fails on them. If you
 change them, check the contrast yourself.
@@ -134,18 +164,20 @@ Top center is the default. A corner is a CSS-only change:
   --notify-shift: 0;
 }
 
-/* bottom left: the region has its own 2rem of space below the last message */
+/* bottom left: the messages have 2rem of space of their own below the last one */
 :root {
   --notify-top: auto;
   --notify-bottom: 0;
   --notify-left: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
+  --notify-clear-order: -1;
 }
 
-/* under a sticky header */
+/* under a sticky header: the height keeps the messages and the button on screen */
 :root {
   --notify-top: 4.25rem;
+  --notify-max-height: calc(100dvh - 5.25rem);
 }
 ```
 
@@ -184,8 +216,8 @@ would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 5451     | 2392 | 2077   |
-| `toast` alone             | 4934     | 2159 | 1868   |
+| The package, with its CSS | 5752     | 2496 | 2171   |
+| `toast` alone             | 5270     | 2280 | 1977   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 0    | 0      |
 
@@ -208,8 +240,9 @@ npm run examples
 ```
 
 Builds the package and serves `examples/` at http://localhost:5179/examples/ with a
-strict CSP: all kinds, the options, positions, a dark look, the flash across a reload,
-a message above an open menu and a simulated browser without popover.
+strict CSP: all kinds, the options, sequential timers, clear all, positions, a dark
+look, the flash across a reload, a message above an open menu and a simulated browser
+without popover.
 
 ## License
 

@@ -6,12 +6,18 @@ import { hasFlash } from '/dist/esm/has-flash.js';
 
 const loaded = document.querySelector('#loaded');
 
-/** The recommended use: the module arrives on first use, with its CSS. */
+let loading;
+
+/**
+ * The recommended use: the module arrives on first use, with its CSS. One promise:
+ * two `import()` calls may resolve in any order while the file is loading, and
+ * messages shown together must keep theirs.
+ */
 const notify = () =>
-  import('/dist/esm/index.js').then((module) => {
+  (loading ??= import('/dist/esm/index.js').then((module) => {
     loaded.textContent = 'loaded';
     return module;
-  });
+  }));
 
 const show = (text, kind, options) => {
   void notify().then(({ toast }) => {
@@ -72,6 +78,35 @@ document.querySelector('#many').addEventListener('click', () => {
   );
 });
 
+document.querySelector('#flood').addEventListener('click', () => {
+  for (let number = 1; number <= 30; number += 1)
+    show(`Permanent message ${number}.`, 'alert');
+});
+
+// A site sets this once, before the first message. Here it changes while messages
+// are up, and those waiting would keep waiting: start clean.
+document.querySelector('#sequential').addEventListener('change', (event) => {
+  document.querySelector('.mm-notify-clear')?.click();
+  void notify().then(({ configure }) => {
+    configure({ sequential: event.target.checked });
+  });
+});
+
+document.querySelector('#three').addEventListener('click', () => {
+  show('First, 5 s.', 'success');
+  show('Second, 5 s.', 'success');
+  show('Third, 5 s.', 'success');
+});
+
+document.querySelector('#held').addEventListener('click', () => {
+  show('First, 5 s.', 'success');
+  show('Second, stays until closed.', 'error');
+  show(
+    'Third, 5 s: when sequential, its time starts after the second.',
+    'neutral'
+  );
+});
+
 // Positions and looks: only an attribute on <html>, the rest is page.css.
 const choose = (name, attribute) => {
   for (const radio of document.querySelectorAll(`[name="${name}"]`)) {
@@ -98,20 +133,13 @@ document.querySelector('#broken').addEventListener('click', () => {
   location.reload();
 });
 
-// What a browser without popover does: `showPopover` is missing and the
-// selector is a SyntaxError. The one thing a simulation can't take away is the
-// browser's own rule hiding a closed `[popover]`, hence `.no-popover` in page.css.
+// What a browser without popover does: the methods are missing. The region is
+// `display: flex` in any browser, so it shows without the top layer here too.
 const older = document.querySelector('#older');
 if (new URLSearchParams(location.search).has('no-popover')) {
-  document.documentElement.classList.add('no-popover');
+  delete HTMLElement.prototype.togglePopover;
   delete HTMLElement.prototype.showPopover;
   delete HTMLElement.prototype.hidePopover;
-  const matches = Element.prototype.matches;
-  Element.prototype.matches = function (selector) {
-    if (selector === ':popover-open')
-      throw new DOMException(`'${selector}' is not valid`, 'SyntaxError');
-    return matches.call(this, selector);
-  };
   older.textContent = 'Back to the current browser';
   older.href = '?';
 }

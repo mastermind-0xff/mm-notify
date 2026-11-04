@@ -1,6 +1,6 @@
 /**
  * happy-dom has no popover. `currentBrowser` adds what browsers since 2024
- * have, `olderBrowser` makes it behave like the ones before: `showPopover` is
+ * have, `olderBrowser` makes it behave like the ones before: `togglePopover` is
  * missing and the selector is a SyntaxError. Both return a function that undoes
  * them.
  */
@@ -23,20 +23,20 @@ function answerPopoverOpen(answer: (element: Element) => boolean): Undo {
 export function currentBrowser(): Undo {
   const open = new WeakSet<Element>();
   const undo = answerPopoverOpen((element) => open.has(element));
-  HTMLElement.prototype.showPopover = function (this: HTMLElement) {
-    if (!this.isConnected || open.has(this))
+  HTMLElement.prototype.togglePopover = function (
+    this: HTMLElement,
+    force?: boolean | TogglePopoverOptions
+  ) {
+    if (!this.isConnected)
       throw new DOMException('Not allowed', 'InvalidStateError');
-    open.add(this);
-  };
-  HTMLElement.prototype.hidePopover = function (this: HTMLElement) {
-    if (!open.has(this))
-      throw new DOMException('Not allowed', 'InvalidStateError');
-    open.delete(this);
+    const wanted = typeof force === 'boolean' ? force : !open.has(this);
+    if (wanted) open.add(this);
+    else open.delete(this);
+    return wanted;
   };
   return () => {
     undo();
-    Reflect.deleteProperty(HTMLElement.prototype, 'showPopover');
-    Reflect.deleteProperty(HTMLElement.prototype, 'hidePopover');
+    Reflect.deleteProperty(HTMLElement.prototype, 'togglePopover');
   };
 }
 

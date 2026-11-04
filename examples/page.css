@@ -27,6 +27,7 @@
   --notify-right: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
+  --notify-clear-order: -1;
   --notify-width: min(24rem, calc(100vw - 2rem));
 }
 
@@ -36,12 +37,14 @@
   --notify-left: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
+  --notify-clear-order: -1;
   --notify-width: min(24rem, calc(100vw - 2rem));
 }
 
 /* What a site with a sticky header does (aesweets: 4.25rem and 7.5rem). */
 :root[data-position='under-header'] {
   --notify-top: 4rem;
+  --notify-max-height: calc(100dvh - 5rem);
 }
 
 :root[data-look='dark'] {
@@ -55,11 +58,6 @@
   --notify-neutral: #1e3a5f;
   --notify-neutral-glow: rgb(30 58 95 / 0.4);
   --notify-radius: 3px;
-}
-
-/* The simulation of a browser without popover (page.js): see the comment there. */
-.no-popover .mm-notify-region {
-  display: block !important;
 }
 
 body {

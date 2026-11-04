@@ -25,7 +25,10 @@
 
       <section>
         <h2>Kinds</h2>
-        <p>Default durations: 5 s, 10 s, 8 s and 5 s.</p>
+        <p>
+          Success and neutral close after 5 s. Alert and error stay until
+          closed.
+        </p>
         <div class="row">
           <button type="button" data-kind="success">Success</button>
           <button type="button" data-kind="error">Error</button>
@@ -71,14 +74,11 @@
           </li>
           <li>
             <button type="button" id="twice">Same text, twice in a row</button>
-            The second replaces the first.
+            An action can happen twice: both show, each with its own time.
           </li>
           <li>
             <button type="button" id="long">A long e-mail</button>
             On a narrow window the cross must stay inside the box.
-          </li>
-          <li>
-            <button type="button" id="many">Five at once</button>
           </li>
           <li>
             <button type="button" popovertarget="menu">Open a menu</button>
@@ -94,6 +94,39 @@
             still go away.
           </li>
         </ul>
+      </section>
+
+      <section>
+        <h2>One after the other</h2>
+        <p>
+          With <code>configure({ sequential: true })</code> one timer runs at a
+          time, oldest message first: the next starts when the one before has
+          closed. A message that stays until closed holds those behind it.
+          Without it every timer runs at once.
+        </p>
+        <div class="row">
+          <label>
+            <input type="checkbox" id="sequential" />
+            Sequential
+          </label>
+          <button type="button" id="three">Three of 5 s</button>
+          <button type="button" id="held">5 s, permanent, 5 s</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Clear all</h2>
+        <p>
+          From three messages a button closes them all, permanent ones too. It
+          sits below the messages, or above them in the bottom positions.
+          <code>configure({ clearAllFrom, clearAllLabel })</code> change when it
+          comes and what it says. When the messages don't fit the window they
+          scroll, and the button stays on screen.
+        </p>
+        <div class="row">
+          <button type="button" id="many">Five at once</button>
+          <button type="button" id="flood">Thirty permanent ones</button>
+        </div>
       </section>
 
       <section>

@@ -96,8 +96,10 @@ describe('the CSS string', () => {
     expect(css).toContain('.mm-notify-region{');
     expect(css).toContain('@keyframes mm-notify-in');
     expect(css).toContain('prefers-reduced-motion');
-    expect(css).toContain('var(--notify-top, 1rem)');
-    expect(css).toContain('var(--notify-success, #00e77f)');
+    expect(css).toContain('var(--notify-top,1rem)');
+    expect(css).toContain('var(--notify-success,#00e77f)');
+    expect(css).toContain('var(--notify-success-glow,rgb(0 213 127/.3))');
+    expect(css).toContain('min(32rem,calc(100vw - 2rem)))');
   });
 });
 
@@ -134,6 +136,17 @@ describe('notify.css', () => {
     expect(code, 'rotate').not.toMatch(/(^|[\s;{])rotate\s*:/);
     expect(code).toMatch(/position: fixed/);
     expect(code).toMatch(/z-index: \d+/);
+  });
+
+  it('lets the messages scroll, so clear all stays on screen', () => {
+    expect(code).toMatch(/\.mm-notify-region \{[^}]*flex-direction: column;/);
+    expect(code).toMatch(/\.mm-notify-list \{[^}]*overflow-y: auto;/);
+  });
+
+  it('moves clear all above the messages with a token', () => {
+    expect(code).toMatch(
+      /\.mm-notify-clear \{[^}]*order: var\(--notify-clear-order, 0\);/
+    );
   });
 
   it('never animates for those who asked not to', () => {
@@ -186,6 +199,15 @@ describe('notify.css', () => {
         expect(ratio).toBeGreaterThanOrEqual(4.5);
       }
     );
+
+    it('keeps 4.5:1 on the clear all button', () => {
+      const text = luminance(defaultOf('clear-color'));
+      const background = luminance(defaultOf('clear'));
+      const ratio =
+        (Math.max(text, background) + 0.05) /
+        (Math.min(text, background) + 0.05);
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    });
 
     it('fails white text on purpose: that is why the text is dark', () => {
       const white = 1;

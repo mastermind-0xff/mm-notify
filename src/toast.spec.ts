@@ -35,6 +35,21 @@ const items = (): HTMLElement[] => [
 const showing = (): HTMLElement[] =>
   items().filter((item) => !item.classList.contains('mm-notify-out'));
 
+/** The live region: the messages, without the clear-all button. */
+const list = (): HTMLElement =>
+  document.querySelector<HTMLElement>('.mm-notify-list')!;
+
+const clearAll = (): HTMLButtonElement =>
+  document.querySelector<HTMLButtonElement>('.mm-notify-clear')!;
+
+const texts = (): (string | null)[] =>
+  showing().map((item) => item.querySelector('p')!.textContent);
+
+const closeButton = (text: string): HTMLButtonElement =>
+  showing()
+    .find((item) => item.querySelector('p')!.textContent === text)!
+    .querySelector('button')!;
+
 /** Runs the pending `requestAnimationFrame` callbacks. */
 const nextFrame = (): void => {
   vi.advanceTimersToNextFrame();
@@ -97,8 +112,6 @@ describe('toast: how long it stays', () => {
   it.each([
     ['success', 5000],
     ['neutral', 5000],
-    ['alert', 8000],
-    ['error', 10_000],
   ] as const)('closes %s after %d ms', (kind, duration) => {
     toast('Bye', kind);
     nextFrame();
@@ -107,6 +120,18 @@ describe('toast: how long it stays', () => {
     vi.advanceTimersByTime(1);
     expect(showing()).toHaveLength(0);
   });
+
+  it.each(['alert', 'error'] as const)(
+    'keeps %s until closed, by default',
+    (kind) => {
+      toast('Stay', kind);
+      nextFrame();
+      vi.advanceTimersByTime(3_600_000);
+      expect(showing()).toHaveLength(1);
+      items()[0]!.querySelector('button')!.click();
+      expect(showing()).toHaveLength(0);
+    }
+  );
 
   it('takes timeoutMs', () => {
     toast('Bye', 'error', { timeoutMs: 100 });
@@ -150,20 +175,47 @@ describe('toast: the popover', () => {
     toast('Two');
     nextFrame();
     expect(isOpen(region())).toBe(true);
-    for (const item of items()) fire(item.querySelector('button')!, 'click');
-    fire(items()[0]!, 'transitionend');
+    items()[0]!.querySelector('button')!.click();
+    vi.advanceTimersByTime(300);
     expect(items()).toHaveLength(1);
     expect(isOpen(region())).toBe(true);
-    fire(items()[0]!, 'transitionend');
+    items()[0]!.querySelector('button')!.click();
+    vi.advanceTimersByTime(300);
     expect(items()).toHaveLength(0);
     expect(isOpen(region())).toBe(false);
+  });
+
+  it('does not throw where asking for the state it has already throws', () => {
+    // The first browsers with popover.
+    toast('One');
+    nextFrame();
+    const toggle = vi
+      .spyOn(HTMLElement.prototype, 'togglePopover')
+      .mockImplementation(() => {
+        throw new DOMException('Already open', 'InvalidStateError');
+      });
+    expect(() => {
+      toast('Two');
+      nextFrame();
+    }).not.toThrow();
+    expect(showing()).toHaveLength(2);
+    toggle.mockRestore();
+  });
+
+  it('does not throw when a message goes after its region left the page', () => {
+    toast('One', 'success', { timeoutMs: 100 });
+    nextFrame();
+    document.body.replaceChildren();
+    expect(() => {
+      vi.advanceTimersByTime(400);
+    }).not.toThrow();
   });
 
   it('opens again for a later toast', () => {
     toast('One');
     nextFrame();
-    fire(items()[0]!.querySelector('button')!, 'click');
-    vi.advanceTimersByTime(400);
+    items()[0]!.querySelector('button')!.click();
+    vi.advanceTimersByTime(300);
     expect(isOpen(region())).toBe(false);
     toast('Two');
     nextFrame();
@@ -179,9 +231,9 @@ describe('toast: screen readers', () => {
     nextFrame();
     toast('Three', 'alert');
     nextFrame();
-    expect(document.querySelectorAll('.mm-notify-region')).toHaveLength(1);
-    expect(region().getAttribute('aria-live')).toBe('polite');
-    expect(items().every((item) => item.parentElement === region())).toBe(true);
+    expect(document.querySelectorAll('.mm-notify-list')).toHaveLength(1);
+    expect(list().getAttribute('aria-live')).toBe('polite');
+    expect(items().every((item) => item.parentElement === list())).toBe(true);
   });
 
   it('adds the item on the next frame, to an existing region', () => {
@@ -222,26 +274,317 @@ describe('toast: screen readers', () => {
 });
 
 describe('toast: the same text twice', () => {
-  it('replaces the first', () => {
+  it('shows both: an action can happen twice', () => {
     toast('Saved', 'success');
     nextFrame();
     const first = items()[0]!;
-    vi.advanceTimersByTime(1000);
     toast('Saved', 'success');
-    expect(first.classList).toContain('mm-notify-out');
     nextFrame();
-    expect(showing()).toHaveLength(1);
-    expect(showing()[0]).not.toBe(first);
-    vi.advanceTimersByTime(4000);
-    expect(showing()).toHaveLength(1);
+    expect(first.classList).not.toContain('mm-notify-out');
+    expect(texts()).toEqual(['Saved', 'Saved']);
   });
 
-  it('leaves other texts alone', () => {
-    toast('One');
+  it('shows both when they come in one frame too', () => {
+    toast('Saved', 'success');
+    toast('Saved', 'success');
     nextFrame();
+    expect(texts()).toEqual(['Saved', 'Saved']);
+  });
+
+  it('gives each its own time', () => {
+    toast('Saved', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(1000);
+    toast('Saved', 'success');
+    nextFrame();
+    const second = items()[1]!;
+    vi.advanceTimersByTime(4000);
+    expect(showing()).toEqual([second]);
+    vi.advanceTimersByTime(1000);
+    expect(showing()).toHaveLength(0);
+  });
+
+  it('closes only the one asked', () => {
+    toast('Saved', 'success');
+    toast('Saved', 'success');
+    nextFrame();
+    const second = items()[1]!;
+    items()[0]!.querySelector('button')!.click();
+    expect(showing()).toEqual([second]);
+  });
+});
+
+describe('toast: one after the other (sequential)', () => {
+  beforeEach(() => {
+    configure({ sequential: true });
+  });
+
+  it('is off by default: every timer runs at once', async () => {
+    await load();
+    toast('One', 'success');
+    toast('Two', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(showing()).toHaveLength(0);
+  });
+
+  it('starts the next timer when the one before closes', () => {
+    toast('One', 'success');
+    toast('Two', 'success');
+    toast('Three', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['One', 'Two', 'Three']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual(['Two', 'Three']);
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Two', 'Three']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual(['Three']);
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Three']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('gives each message its own time', () => {
+    toast('Short', 'success', { timeoutMs: 100 });
+    toast('Long', 'success', { timeoutMs: 3000 });
+    nextFrame();
+    vi.advanceTimersByTime(100);
+    expect(texts()).toEqual(['Long']);
+    vi.advanceTimersByTime(2999);
+    expect(texts()).toEqual(['Long']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('waits for a permanent message before the timers behind it', () => {
+    toast('One', 'success');
+    toast('Permanent', 'error');
+    toast('Three', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual(['Permanent', 'Three']);
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Permanent', 'Three']);
+    closeButton('Permanent').click();
+    expect(texts()).toEqual(['Three']);
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Three']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('holds a message that comes later behind a permanent one', () => {
+    toast('Permanent', 'alert');
+    nextFrame();
+    vi.advanceTimersByTime(60_000);
+    toast('Later', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['Permanent', 'Later']);
+    closeButton('Permanent').click();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+
+  it('runs a timer right away when nothing is ahead of it', () => {
+    toast('One', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    toast('Two', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+
+  it('starts the next when the first is closed by hand', () => {
+    toast('One', 'success');
+    toast('Two', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4000);
+    closeButton('One').click();
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Two']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('leaves the running timer alone when a waiting one is closed', () => {
+    toast('One', 'success');
+    toast('Two', 'success');
+    toast('Three', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4000);
+    closeButton('Two').click();
+    vi.advanceTimersByTime(1000);
+    expect(texts()).toEqual(['Three']);
+  });
+
+  it('holds the line while the first is hovered', () => {
+    toast('One', 'success');
+    toast('Two', 'success');
+    nextFrame();
+    const [first] = items();
+    fire(first!, 'pointerenter');
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['One', 'Two']);
+    fire(first!, 'pointerleave');
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual(['Two']);
+  });
+
+  it('does not start a waiting timer when the pointer leaves it', () => {
+    toast('One', 'alert');
+    toast('Two', 'success');
+    nextFrame();
+    fire(items()[1]!, 'pointerenter', 'pointerleave');
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['One', 'Two']);
+  });
+
+  it('holds the next if the pointer is on it when its turn comes', () => {
+    toast('One', 'success');
+    toast('Two', 'success');
+    nextFrame();
+    const second = items()[1]!;
+    fire(second, 'pointerenter');
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['Two']);
+    fire(second, 'pointerleave');
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+
+  it('counts a message from when it is on the page, not before', () => {
+    let frame: FrameRequestCallback | undefined;
+    toast('One', 'success');
+    nextFrame();
+    // A hidden tab: frames wait, timers don't.
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frame = callback;
+      return 1;
+    });
+    toast('Two', 'success');
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual([]);
+    vi.unstubAllGlobals();
+    frame?.(0);
+    expect(texts()).toEqual(['Two']);
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Two']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('is not held by a message that left with the page', () => {
+    toast('Permanent', 'error');
+    nextFrame();
+    document.body.replaceChildren();
+    toast('Next', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+
+  it('keeps a message waiting for its frame when the region is rebuilt', () => {
+    toast('Waiting', 'success');
+    document.body.replaceChildren();
+    nextFrame();
+    expect(texts()).toEqual(['Waiting']);
+    closeButton('Waiting').click();
+    expect(texts()).toEqual([]);
+  });
+});
+
+describe('toast: clear all', () => {
+  it('appears from three messages and goes away below that', () => {
+    toast('One');
     toast('Two');
     nextFrame();
-    expect(showing()).toHaveLength(2);
+    expect(clearAll().hidden).toBe(true);
+    toast('Three');
+    nextFrame();
+    expect(clearAll().hidden).toBe(false);
+    closeButton('Three').click();
+    expect(clearAll().hidden).toBe(true);
+  });
+
+  it('closes every message, permanent ones too, and the popover', () => {
+    toast('One', 'error');
+    toast('Two', 'alert');
+    toast('Three', 'success');
+    nextFrame();
+    clearAll().click();
+    expect(showing()).toHaveLength(0);
+    expect(clearAll().hidden).toBe(true);
+    vi.advanceTimersByTime(300);
+    expect(items()).toHaveLength(0);
+    expect(isOpen(region())).toBe(false);
+  });
+
+  it('closes every message in sequential mode too', () => {
+    configure({ sequential: true });
+    toast('One', 'error');
+    toast('Two', 'success');
+    toast('Three', 'success');
+    nextFrame();
+    clearAll().click();
+    expect(showing()).toHaveLength(0);
+    vi.advanceTimersByTime(60_000);
+    expect(items()).toHaveLength(0);
+  });
+
+  it('also drops a message still waiting for its frame', () => {
+    toast('One');
+    toast('Two');
+    toast('Three');
+    nextFrame();
+    toast('Four');
+    clearAll().click();
+    nextFrame();
+    expect(showing()).toHaveLength(0);
+    vi.advanceTimersByTime(300);
+    expect(items()).toHaveLength(0);
+  });
+
+  it('is a labeled button outside the live region, after the messages', () => {
+    toast('One');
+    nextFrame();
+    expect(clearAll().type).toBe('button');
+    expect(clearAll().textContent).toBe('Clear all');
+    expect(list().contains(clearAll())).toBe(false);
+    expect(clearAll().parentElement).toBe(region());
+    expect(list().nextElementSibling).toBe(clearAll());
+  });
+
+  it('takes the label and the number from configure', () => {
+    configure({ clearAllLabel: 'Tout effacer', clearAllFrom: 2 });
+    toast('One');
+    nextFrame();
+    expect(clearAll().hidden).toBe(true);
+    toast('Two');
+    nextFrame();
+    expect(clearAll().hidden).toBe(false);
+    expect(clearAll().textContent).toBe('Tout effacer');
+  });
+
+  it('never appears with clearAllFrom: Infinity', () => {
+    configure({ clearAllFrom: Infinity });
+    for (const text of ['1', '2', '3', '4', '5', '6']) toast(text);
+    nextFrame();
+    expect(clearAll().hidden).toBe(true);
+  });
+
+  it('does not count what left with the page', () => {
+    toast('One', 'error');
+    toast('Two', 'error');
+    nextFrame();
+    document.body.replaceChildren();
+    toast('Three');
+    nextFrame();
+    expect(clearAll().hidden).toBe(true);
   });
 });
 
@@ -318,34 +661,31 @@ describe('toast: closing', () => {
     ).toEqual(['Fermer', 'Schließen']);
   });
 
-  it('is removed when the transition ends', () => {
+  it('is removed after the closing transition, reduced motion or not', () => {
     toast('Hello');
     nextFrame();
     items()[0]!.querySelector('button')!.click();
-    expect(items()).toHaveLength(1);
-    fire(items()[0]!, 'transitionend');
-    expect(items()).toHaveLength(0);
-  });
-
-  it('is removed without any transition too (reduced motion)', () => {
-    toast('Hello');
-    nextFrame();
-    items()[0]!.querySelector('button')!.click();
-    vi.advanceTimersByTime(399);
+    vi.advanceTimersByTime(299);
     expect(items()).toHaveLength(1);
     vi.advanceTimersByTime(1);
     expect(items()).toHaveLength(0);
+  });
+
+  it('removes it as long after as the CSS transition takes', () => {
+    const css = readFileSync(join(import.meta.dirname, 'notify.css'), 'utf8');
+    expect(css).toMatch(/transition:\s*0\.3s /);
   });
 
   it('closes once, however often it is asked', () => {
     toast('Hello', 'neutral', { timeoutMs: 100 });
     nextFrame();
     const item = items()[0]!;
-    const spy = vi.spyOn(item, 'addEventListener');
+    const spy = vi.spyOn(globalThis, 'setTimeout');
     item.querySelector('button')!.click();
     item.querySelector('button')!.click();
     vi.advanceTimersByTime(100);
     expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });
 
@@ -362,7 +702,7 @@ describe('fix: browsers without popover', () => {
     }).not.toThrow();
     nextFrame();
     expect(showing()).toHaveLength(1);
-    expect(items()[0]!.parentElement).toBe(region());
+    expect(items()[0]!.parentElement).toBe(list());
     expect(region().parentElement).toBe(document.body);
   });
 
@@ -371,12 +711,9 @@ describe('fix: browsers without popover', () => {
     nextFrame();
     items()[0]!.querySelector('button')!.click();
     expect(() => {
-      fire(items()[0]!, 'transitionend');
+      vi.advanceTimersByTime(300);
     }).not.toThrow();
     expect(items()).toHaveLength(0);
-    expect(() => {
-      vi.advanceTimersByTime(400);
-    }).not.toThrow();
   });
 });
 
@@ -430,25 +767,22 @@ describe('fix: the timer only runs when nothing holds it', () => {
 });
 
 // Found while porting: not in plan §4, same treatment.
-describe('fix: the same text twice in one frame', () => {
-  it('shows it once', () => {
-    toast('Saved', 'success');
-    toast('Saved', 'success');
-    nextFrame();
-    expect(showing()).toHaveLength(1);
-    expect(items()).toHaveLength(1);
-  });
-});
-
 describe('fix: a removal between opening and the next frame', () => {
   it('still shows the new toast', () => {
     toast('Old');
     nextFrame();
     items()[0]!.querySelector('button')!.click();
+    let frame: FrameRequestCallback | undefined;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frame = callback;
+      return 1;
+    });
     toast('New');
     // the old one goes before the frame of the new one: the region is empty
-    fire(items()[0]!, 'transitionend');
-    nextFrame();
+    vi.advanceTimersByTime(300);
+    expect(items()).toHaveLength(0);
+    vi.unstubAllGlobals();
+    frame?.(0);
     expect(showing()).toHaveLength(1);
     expect(isOpen(region())).toBe(true);
   });

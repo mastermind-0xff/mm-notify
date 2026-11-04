@@ -12,10 +12,23 @@ Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.cs
   fallback, built from `src/notify.css` (also shipped as
   `@mmutils/notify/notify.css`). `--notify-*` custom properties for colors, glow and
   position; `mm-notify` class names.
-- `npm run size`: 2392 B minified and gzipped with the CSS, 123 B for the eager
+- `npm run size`: 2496 B minified and gzipped with the CSS, 123 B for the eager
   check, which loads no other chunk.
 - `examples/`: a page with every kind, position and option under a strict CSP
   (`npm run examples`).
+
+Changed against the original:
+
+- Alert and error stay until closed by default (they closed after 8 s and 10 s).
+- The same text again shows a second message. It replaced the first.
+- `configure({ sequential: true })`: one timer at a time, oldest message first, and a
+  message that stays until closed holds those behind it.
+- A clear-all button from three messages (`clearAllFrom`, `clearAllLabel`, and
+  `--notify-clear`, `--notify-clear-color`, `--notify-clear-order`).
+- Messages that don't fit the window scroll, so the button stays on screen. They ran
+  off it. The live region is now `.mm-notify-list`, inside the popover.
+- A message is removed 0.3 s after it starts closing, always. It went at the first
+  `transitionend`, the opacity's at 0.2 s, cutting the collapse short.
 
 Fixed against the original, each with a test that failed first, except the last
 (CSS layout, reproduced in Chrome by turning the rule off):
@@ -25,7 +38,6 @@ Fixed against the original, each with a test that failed first, except the last
   while it had focus (or the other way round) closed it. It counts down now only when
   nothing holds it.
 - A malformed flash stayed in storage, so every page loaded the module for nothing.
-- The same text twice in one frame showed twice.
 - A removal landing just before a new message's frame closed the popover, so the new
   message went into a hidden region.
 - A long e-mail pushed the close cross out of a narrow box (seen in Chrome).
