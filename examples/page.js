@@ -1,8 +1,8 @@
 /**
- * The example page. Only the eager entry is imported up front, as a site would
+ * The example page. Only the eager check is imported up front, as a site would
  * do it; the rest comes with the first message.
  */
-import { flash, hasFlash } from '/dist/esm/flash.js';
+import { hasFlash } from '/dist/esm/has-flash.js';
 
 const loaded = document.querySelector('#loaded');
 
@@ -86,8 +86,10 @@ choose('look', 'look');
 
 for (const button of document.querySelectorAll('[data-flash]')) {
   button.addEventListener('click', () => {
-    flash(`This message came across the reload.`, button.dataset.flash);
-    location.reload();
+    void notify().then(({ flash }) => {
+      flash('This message came across the reload.', button.dataset.flash);
+      location.reload();
+    });
   });
 }
 

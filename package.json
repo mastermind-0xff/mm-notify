@@ -24,10 +24,10 @@
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
     },
-    "./flash": {
-      "types": "./dist/types/flash.d.ts",
-      "import": "./dist/esm/flash.js",
-      "require": "./dist/cjs/flash.cjs"
+    "./has-flash": {
+      "types": "./dist/types/has-flash.d.ts",
+      "import": "./dist/esm/has-flash.js",
+      "require": "./dist/cjs/has-flash.cjs"
     },
     "./notify.css": "./dist/notify.css",
     "./package.json": "./package.json"

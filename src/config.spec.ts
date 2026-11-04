@@ -9,7 +9,6 @@ describe('configure', () => {
   });
 
   it('has neutral defaults', () => {
-    expect(config.flashKey).toBe('mm-notify.flash');
     expect(config.closeLabel).toBe('Close the message');
     expect(config.injectCss).toBe(true);
     expect(config.durations).toEqual({
@@ -23,7 +22,7 @@ describe('configure', () => {
   it('changes only the given values', () => {
     configure({ closeLabel: 'Fermer', durations: { error: 0 } });
     expect(config.closeLabel).toBe('Fermer');
-    expect(config.flashKey).toBe('mm-notify.flash');
+    expect(config.injectCss).toBe(true);
     expect(config.durations.error).toBe(0);
     expect(config.durations.alert).toBe(8000);
   });

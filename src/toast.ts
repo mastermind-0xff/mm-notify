@@ -15,6 +15,8 @@ export interface ToastOptions {
   readonly closeLabel?: string;
 }
 
+/** Also in has-flash.ts, which must import nothing. */
+const FLASH_KEY = 'mm-notify.flash';
 const OUT = 'mm-notify-out';
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -152,13 +154,30 @@ export function toast(
   });
 }
 
+/**
+ * Leaves a notification for the next page (after a redirect or reload). Storage
+ * off: the message is lost, nothing else. Here and not in the eager entry because
+ * the next page needs this module anyway to show it.
+ */
+export function flash(
+  text: string,
+  kind: ToastKind = 'success',
+  key = FLASH_KEY
+): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ text, kind }));
+  } catch {
+    // Lost, on purpose.
+  }
+}
+
 /** Shows the notification left by `flash` on the previous page, once. */
-export function showFlash(): void {
+export function showFlash(key = FLASH_KEY): void {
   let saved: unknown;
   try {
-    const stored = sessionStorage.getItem(config.flashKey);
+    const stored = sessionStorage.getItem(key);
     // Before parsing: a broken value must not stay and load this module on every page.
-    sessionStorage.removeItem(config.flashKey);
+    sessionStorage.removeItem(key);
     saved = JSON.parse(stored ?? 'null');
   } catch {
     return;

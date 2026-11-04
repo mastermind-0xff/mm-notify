@@ -1,13 +1,8 @@
-/**
- * What a site may change, set once with `configure`. Lives in its own small
- * module because the eager entry (`./flash`) needs the storage key too.
- */
+/** What a site may change, set once with `configure`. */
 
 export type ToastKind = 'success' | 'error' | 'alert' | 'neutral';
 
 export interface NotifyConfig {
-  /** The `sessionStorage` key of the flash message. */
-  readonly flashKey?: string;
   /** The close button's label, for screen readers. */
   readonly closeLabel?: string;
   /** Milliseconds on screen per kind; 0 keeps it until closed. */
@@ -18,7 +13,6 @@ export interface NotifyConfig {
 
 /** The current values (package internal). */
 export const config = {
-  flashKey: 'mm-notify.flash',
   closeLabel: 'Close the message',
   durations: {
     success: 5000,

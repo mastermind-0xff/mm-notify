@@ -10,29 +10,27 @@ describe('on the server', () => {
     expect(typeof sessionStorage).toBe('undefined');
   });
 
-  it('imports both entries', async () => {
+  it('imports both entries, which share nothing', async () => {
     const main = await import('./index.js');
-    const eager = await import('./flash.js');
+    const eager = await import('./has-flash.js');
     expect(Object.keys(main).sort()).toEqual([
       'configure',
       'flash',
-      'hasFlash',
       'showFlash',
       'toast',
     ]);
-    expect(Object.keys(eager).sort()).toEqual([
-      'configure',
-      'flash',
-      'hasFlash',
-    ]);
+    expect(Object.keys(eager)).toEqual(['hasFlash']);
   });
 
   it('has no storage to fail on: the flash functions stay silent', async () => {
-    const { flash, hasFlash, showFlash } = await import('./index.js');
+    const { hasFlash } = await import('./has-flash.js');
+    const { flash, showFlash } = await import('./index.js');
     expect(() => {
       flash('Hi');
     }).not.toThrow();
     expect(hasFlash()).toBe(false);
-    expect(showFlash).not.toThrow();
+    expect(() => {
+      showFlash();
+    }).not.toThrow();
   });
 });

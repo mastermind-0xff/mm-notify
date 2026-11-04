@@ -4,19 +4,24 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentBrowser, isOpen, olderBrowser } from './test-utils/browsers.js';
 import type { configure as Configure, ToastKind } from './config.js';
-import type { showFlash as ShowFlash, toast as Toast } from './toast.js';
+import type {
+  flash as Flash,
+  showFlash as ShowFlash,
+  toast as Toast,
+} from './toast.js';
 
 const KINDS: readonly ToastKind[] = ['success', 'error', 'alert', 'neutral'];
 
 let toast: typeof Toast;
 let showFlash: typeof ShowFlash;
+let flash: typeof Flash;
 let configure: typeof Configure;
 let undoBrowser: () => void;
 
 /** Fresh modules per test: the region and the settings start from the start. */
 async function load(): Promise<void> {
   vi.resetModules();
-  ({ toast, showFlash } = await import('./toast.js'));
+  ({ toast, flash, showFlash } = await import('./toast.js'));
   ({ configure } = await import('./config.js'));
 }
 
@@ -282,7 +287,7 @@ describe('toast: plain text only', () => {
   });
 
   it('has no innerHTML in the source (Trusted Types)', () => {
-    for (const file of ['toast.ts', 'styles.ts', 'flash.ts'])
+    for (const file of ['toast.ts', 'styles.ts', 'has-flash.ts'])
       expect(
         readFileSync(join(import.meta.dirname, file), 'utf8'),
         file
@@ -449,11 +454,67 @@ describe('fix: a removal between opening and the next frame', () => {
   });
 });
 
+describe('flash', () => {
+  const KEY = 'mm-notify.flash';
+
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('stores text and kind, success by default', () => {
+    flash('Logged in.');
+    expect(JSON.parse(sessionStorage.getItem(KEY)!)).toEqual({
+      text: 'Logged in.',
+      kind: 'success',
+    });
+    flash('Nope', 'error');
+    expect(JSON.parse(sessionStorage.getItem(KEY)!)).toEqual({
+      text: 'Nope',
+      kind: 'error',
+    });
+  });
+
+  it('takes another key', () => {
+    flash('Hi', 'neutral', 'shop.flash');
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    expect(sessionStorage.getItem('shop.flash')).not.toBeNull();
+  });
+
+  it('shows no message by itself', () => {
+    flash('Hi');
+    nextFrame();
+    expect(region()).toBeNull();
+  });
+
+  it('loses the message silently when storage fails', () => {
+    vi.stubGlobal('sessionStorage', {
+      setItem() {
+        throw new DOMException('Full', 'QuotaExceededError');
+      },
+    });
+    expect(() => {
+      flash('Hi');
+    }).not.toThrow();
+  });
+});
+
 describe('showFlash', () => {
   const KEY = 'mm-notify.flash';
 
   beforeEach(() => {
     sessionStorage.clear();
+  });
+
+  it('shows what flash left, with its kind', () => {
+    flash('Logged out.', 'alert');
+    showFlash();
+    nextFrame();
+    expect(items()[0]!.classList).toContain('mm-notify-alert');
+    expect(items()[0]!.querySelector('p')!.textContent).toBe('Logged out.');
   });
 
   it('shows the stored message once and removes it', () => {
@@ -469,11 +530,10 @@ describe('showFlash', () => {
     expect(items()).toHaveLength(1);
   });
 
-  it('reads the configured key', () => {
-    configure({ flashKey: 'shop.flash' });
+  it('takes another key', () => {
     sessionStorage.setItem('shop.flash', '{"text":"Hi"}');
     sessionStorage.setItem(KEY, '{"text":"Not this"}');
-    showFlash();
+    showFlash('shop.flash');
     nextFrame();
     expect(items()[0]!.querySelector('p')!.textContent).toBe('Hi');
     expect(sessionStorage.getItem(KEY)).not.toBeNull();
