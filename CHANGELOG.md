@@ -15,7 +15,8 @@ Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.cs
 - `npm run size`: 2496 B minified and gzipped with the CSS, 123 B for the eager
   check, which loads no other chunk.
 - `examples/`: a page with every kind, position and option under a strict CSP
-  (`npm run examples`).
+  (`npm run examples`), and a design tool that exports CSS, settings or a brief for an
+  agent (`examples/design.html`).
 
 Changed against the original:
 

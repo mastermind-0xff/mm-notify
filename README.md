@@ -244,6 +244,26 @@ strict CSP: all kinds, the options, sequential timers, clear all, positions, a d
 look, the flash across a reload, a message above an open menu and a simulated browser
 without popover.
 
+## Design tool
+
+`npm run examples`, then http://localhost:5179/examples/design.html. It changes real
+messages at their real position, through what a site would set, and shows the contrast
+of each color as you go. Position, colors, glow, shape, type, spacing, clear all and the
+timers. It remembers your design in the browser until you go back to the defaults.
+
+When the design is approved, export what differs from the defaults:
+
+- **Brief for an agent:** the CSS and the settings with instructions and the contrast
+  figures, as Markdown. Give this to an agent to set the design.
+- **CSS:** for the site's own stylesheet. Custom properties on `:root`, then rules for what
+  has none (padding, border, glow shape), more specific than the package's own, so the
+  order doesn't matter and the package pays nothing for them.
+- **Settings:** the same as JSON (`tokens`, `rules`, `configure`). JSON has no `Infinity`,
+  so `clearAllFrom` says `"Infinity"` there as a string.
+
+Its defaults are read from `dist/notify.css` and `config`, and it warns when the CSS has a
+custom property it has no control for.
+
 ## License
 
 MIT

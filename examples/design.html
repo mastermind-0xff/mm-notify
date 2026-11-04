@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@mmutils/notify design tool</title>
+    <link rel="stylesheet" href="./design.css" />
+    <script type="module" src="./design.js"></script>
+  </head>
+  <body>
+    <div id="page">
+      <header class="bar">
+        <strong>A site</strong>
+        <span>A sticky header, to place the messages against.</span>
+      </header>
+      <main>
+        <h1>The page behind the messages</h1>
+        <p>
+          The messages on this page are the real ones, in the top layer, under
+          the same strict CSP as the example page. What you change goes through
+          the custom properties a site would set, so what you see is what the
+          export gives.
+        </p>
+        <p>
+          Resize the window to see a phone. Change the page color under
+          <em>The page behind</em> to judge the glow on a dark site.
+        </p>
+        <h2>Some more content</h2>
+        <p>
+          Text under a message shows how much it stands out, and how far the
+          glow reaches. A long paragraph, so that the page has some weight
+          behind the stack, and a link to compare with:
+          <a href="./index.html">the example page</a>.
+        </p>
+      </main>
+    </div>
+
+    <aside id="panel" aria-label="The design">
+      <h1>Notification design</h1>
+      <div id="warnings" role="status"></div>
+      <div id="controls"></div>
+
+      <section id="export">
+        <h2>Export</h2>
+        <p>
+          Only what differs from the package's defaults. The brief has all of it
+          with instructions, for an agent to set the design.
+        </p>
+        <div class="row" id="formats">
+          <label>
+            <input type="radio" name="format" value="brief" checked />
+            Brief for an agent
+          </label>
+          <label>
+            <input type="radio" name="format" value="css" />
+            CSS
+          </label>
+          <label>
+            <input type="radio" name="format" value="json" />
+            Settings
+          </label>
+        </div>
+        <textarea id="output" rows="14" readonly spellcheck="false"></textarea>
+        <div class="row">
+          <button type="button" id="copy">Copy</button>
+          <button type="button" id="download">Download</button>
+          <button type="button" id="reset">Back to the defaults</button>
+        </div>
+        <p id="done" role="status"></p>
+      </section>
+    </aside>
+  </body>
+</html>
