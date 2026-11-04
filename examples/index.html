@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@mmutils/notify examples</title>
+    <link rel="stylesheet" href="./page.css" />
+    <script type="module" src="./page.js"></script>
+  </head>
+  <body>
+    <header class="bar">
+      <strong>@mmutils/notify</strong>
+      <span>A sticky header, to see what the messages sit above.</span>
+    </header>
+
+    <main>
+      <h1>Notifications</h1>
+      <p>
+        The page loads only <code>dist/esm/flash.js</code> up front. The toast
+        code and its CSS come with the first message:
+        <strong id="loaded">not loaded yet</strong>. The server sends a strict
+        CSP (<code>style-src 'self'</code>, Trusted Types), so nothing here may
+        use inline styles or <code>innerHTML</code>.
+      </p>
+
+      <section>
+        <h2>Kinds</h2>
+        <p>Default durations: 5 s, 10 s, 8 s and 5 s.</p>
+        <div class="row">
+          <button type="button" data-kind="success">Success</button>
+          <button type="button" data-kind="error">Error</button>
+          <button type="button" data-kind="alert">Alert</button>
+          <button type="button" data-kind="neutral">Neutral</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your message</h2>
+        <form id="custom">
+          <label>
+            Text
+            <input name="text" value="Saved. <b>Markup</b> stays plain text." />
+          </label>
+          <label>
+            Kind
+            <select name="kind">
+              <option>success</option>
+              <option>error</option>
+              <option>alert</option>
+              <option selected>neutral</option>
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" name="sticky" />
+            Stay until closed (<code>timeoutMs: 0</code>)
+          </label>
+          <label>
+            <input type="checkbox" name="silent" />
+            Not read out (<code>announce: false</code>)
+          </label>
+          <button type="submit">Show</button>
+        </form>
+      </section>
+
+      <section>
+        <h2>Behavior to try</h2>
+        <ul>
+          <li>
+            Hover a message, or tab to its cross: the timer holds until both are
+            gone.
+          </li>
+          <li>
+            <button type="button" id="twice">Same text, twice in a row</button>
+            The second replaces the first.
+          </li>
+          <li>
+            <button type="button" id="long">A long e-mail</button>
+            On a narrow window the cross must stay inside the box.
+          </li>
+          <li>
+            <button type="button" id="many">Five at once</button>
+          </li>
+          <li>
+            <button type="button" popovertarget="menu">Open a menu</button>
+            and then show a message with the button in it: the message sits
+            above the open menu (top layer).
+            <div id="menu" popover>
+              <p>An open menu, a popover of the page.</p>
+              <button type="button" data-kind="success">Show a message</button>
+            </div>
+          </li>
+          <li>
+            Turn on "reduce motion" in your system: no animation, and messages
+            still go away.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Position</h2>
+        <p>
+          A CSS-only change: these set <code>--notify-*</code> custom properties
+          on <code>:root</code> (see <code>page.css</code>).
+        </p>
+        <div class="row" id="positions">
+          <label>
+            <input type="radio" name="position" value="" checked />
+            Top center
+          </label>
+          <label>
+            <input type="radio" name="position" value="top-right" />
+            Top right
+          </label>
+          <label>
+            <input type="radio" name="position" value="top-left" />
+            Top left
+          </label>
+          <label>
+            <input type="radio" name="position" value="bottom-right" />
+            Bottom right
+          </label>
+          <label>
+            <input type="radio" name="position" value="bottom-left" />
+            Bottom left
+          </label>
+          <label>
+            <input type="radio" name="position" value="under-header" />
+            Under the header
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Look</h2>
+        <div class="row" id="looks">
+          <label>
+            <input type="radio" name="look" value="" checked />
+            Default
+          </label>
+          <label>
+            <input type="radio" name="look" value="dark" />
+            Dark tokens
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Flash across a reload</h2>
+        <p>
+          <code>flash</code> leaves one message in <code>sessionStorage</code>.
+          After the reload the page asks <code>hasFlash()</code> and loads the
+          toast code only if it says yes.
+        </p>
+        <div class="row">
+          <button type="button" data-flash="success">Success and reload</button>
+          <button type="button" data-flash="error">Error and reload</button>
+          <button type="button" id="broken">A broken value and reload</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Older browsers</h2>
+        <p>
+          <a id="older" href="?no-popover">Simulate a browser without popover</a
+          >: the region is a plain fixed element, so it can end up under an open
+          menu, and nothing throws.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

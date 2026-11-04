@@ -36,7 +36,9 @@
     "dist",
     "CHANGELOG.md"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "*.css"
+  ],
   "engines": {
     "node": ">=22"
   },

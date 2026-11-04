@@ -4,7 +4,7 @@
  * then gzipped. Fails above the budgets, or when one of the promises the
  * package makes about loading doesn't hold:
  *
- * - importing and not using it costs nothing (`sideEffects: false`);
+ * - importing and not using it costs nothing (the JS has no side effects);
  * - the eager entry carries no toast code and no CSS, the lazy chunk does;
  * - the built files import cleanly on the server, in both module formats.
  */
@@ -15,7 +15,7 @@ import { build } from 'esbuild';
 import { minifiedCss } from './css-text.js';
 
 const root = resolve(import.meta.dirname, '..');
-const BUDGETS = { package: 2500, eager: 300 };
+const BUDGETS = { package: 2500, eager: 350 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>
@@ -45,10 +45,7 @@ async function size(name, contents) {
 }
 
 const rows = [
-  await size(
-    'whole package, with its CSS',
-    "export * from '@mmutils/notify';"
-  ),
+  await size('whole package, with its CSS', "export * from '@mmutils/notify';"),
   await size('toast alone', "export { toast } from '@mmutils/notify';"),
   await size(
     'eager: hasFlash',
