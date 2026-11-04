@@ -1,0 +1,15 @@
+# dependencies and build output
+node_modules
+dist
+coverage
+*.tgz
+
+# local only: assistant settings, plan and notes; reference material
+.claude
+resources
+
+# editors and OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
