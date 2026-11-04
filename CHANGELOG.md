@@ -17,7 +17,8 @@ Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.cs
 - `examples/`: a page with every kind, position and option under a strict CSP
   (`npm run examples`).
 
-Fixed against the original, each with a test that failed first:
+Fixed against the original, each with a test that failed first, except the last
+(CSS layout, reproduced in Chrome by turning the rule off):
 
 - Browsers without popover threw a SyntaxError. A plain fixed element works now.
 - A stale timer could close a message while hovered, and moving the pointer away
