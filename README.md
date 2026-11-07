@@ -19,7 +19,7 @@ Work in progress: nothing is published yet.
 ## Use it on first use
 
 ```js
-// The page's eager code. 123 bytes, and it loads nothing else.
+// The page's eager code. `hasFlash` is 123 B gzipped and loads nothing else.
 import { hasFlash } from '@mmutils/notify/has-flash';
 
 let loading;
@@ -62,6 +62,9 @@ Importing on the server is safe. There `flash` and `showFlash` do nothing and
 
 ## API
 
+`toast`, `flash`, `showFlash` and `configure` come from `@mmutils/notify`, with the types
+`ToastKind`, `ToastOptions` and `NotifyConfig`.
+
 ### `toast(text, kind = 'neutral', options?)`
 
 Shows a message. `kind` is `'success'`, `'error'`, `'alert'` or `'neutral'`; empty
@@ -75,7 +78,8 @@ text shows nothing. Options:
 
 - Default durations: success and neutral 5 s. Alert and error stay until closed.
 - Every call shows its own message, the same text too: an action can happen twice.
-- The time runs only while neither the pointer nor the focus is on the message.
+- The time runs only while neither the pointer nor the focus is on the message, and
+  starts over in full when both have left.
 - The text goes through `textContent`. There are no HTML messages.
 
 A new message comes in at the start of the stack: on top for the top positions, at the
@@ -109,7 +113,7 @@ configure({
   clearAllLabel: 'Tout effacer',
   durations: { error: 10_000 }, // errors close by themselves after 10 s
   sequential: true,
-  injectCss: false, // see "The CSS"
+  injectCss: false, // only if the page loads the CSS itself, see "The CSS"
 });
 
 export { flash, showFlash, toast } from '@mmutils/notify';
@@ -222,7 +226,9 @@ would load another chunk. It also imports the built files on Node.
 | The package, with its CSS | 6118     | 2570 | 2230   |
 | `toast` alone             | 5636     | 2355 | 2052   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
-| Imported, not used        | 0        | 0    | 0      |
+| Imported, not used        | 0        | 20   | 1      |
+
+The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
 
 ## As a `file:` dependency
 
@@ -243,9 +249,9 @@ npm run examples
 ```
 
 Builds the package and serves `examples/` at http://localhost:5179/examples/ with a
-strict CSP: all kinds, the options, sequential timers, clear all, positions, a dark
-look, the flash across a reload, a message above an open menu and a simulated browser
-without popover.
+strict CSP: all kinds, `timeoutMs` and `announce`, sequential timers, clear all,
+positions, a dark look, the flash across a reload, a message above an open menu and a
+simulated browser without popover.
 
 ## Design tool
 

@@ -4,9 +4,11 @@
  * and `configure`, and exports only what differs from the defaults: as CSS, as
  * settings, or as a brief for an agent to set the design.
  *
- * The defaults are read from the package (`dist/notify.css`, `config`), never
- * repeated here, so they can't go stale. What has no custom property goes into CSS
- * rules more specific than the package's own, so the package pays nothing for it.
+ * The defaults are read from the package (`dist/notify.css`, `config`), so they
+ * can't go stale. Only what a position means (`tokensOf`) and what the CSS has no
+ * value for (border, icons, where clear all sits) are written out here. What has no
+ * custom property goes into CSS rules more specific than the package's own, so the
+ * package pays nothing for it.
  *
  * DOM APIs only, like the package: the server sends a strict CSP.
  */
