@@ -31,8 +31,9 @@ Changed against the original:
   smoothly. It was always added at the end, and the stack jumped.
 - Messages that don't fit the window scroll, so the newest and the button stay on screen.
   They ran off it. The live region is now `.mm-notify-list`, inside the popover.
-- A message is removed 0.3 s after it starts closing, always. It went at the first
-  `transitionend`, the opacity's at 0.2 s, cutting the collapse short.
+- A closing message shrinks from its real height to 0 in 0.3 s, its contents gone in the
+  first 0.1 s, and is removed at 0.35 s, always. It went at the first `transitionend`, the
+  opacity's at 0.2 s, cutting the collapse short.
 
 Fixed against the original, each with a test that failed first, except the last
 (CSS layout, reproduced in Chrome by turning the rule off):

@@ -176,8 +176,41 @@ describe('notify.css', () => {
 
   it('never animates for those who asked not to', () => {
     expect(code).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify\.mm-notify-out,\s*\.mm-notify\.mm-notify-out > \*,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
     );
+  });
+
+  const rule = (selector: string): string =>
+    code.split(`${selector} {`)[1]?.split('}')[0] ?? '';
+
+  it('closes the box in 0.3 s and its children in 0.1 s', () => {
+    const box = rule('.mm-notify.mm-notify-out');
+    expect(box).toMatch(
+      /transition:\s*0\.3s cubic-bezier\([^)]+\),\s*opacity 0\.3s/
+    );
+    for (const zero of ['max-height', 'margin-block', 'padding-block'])
+      expect(box).toContain(`${zero}: 0;`);
+    const children = rule('.mm-notify.mm-notify-out > *');
+    expect(children).toContain('opacity: 0;');
+    expect(children).toMatch(/transition: opacity 0\.1s/);
+  });
+
+  it('has no transition on a message at rest: toast.ts sets where closing starts', () => {
+    expect(rule('.mm-notify')).not.toContain('transition');
+  });
+
+  it('takes back the list padding, so clear all sits one message gap away', () => {
+    const padding = /padding: \S+ \S+ (\S+);/.exec(rule('.mm-notify-list'));
+    const margin = /margin: (\S+) /.exec(rule('.mm-notify-clear'));
+    expect(margin?.[1]).toBe(`-${padding?.[1] ?? ''}`);
+  });
+
+  it('moves clear all under the messages, and raises it once it has stopped', () => {
+    const gone = rule('.mm-notify-clear.mm-notify-out');
+    expect(gone).toContain('z-index: -1;');
+    expect(gone).toContain('transition-delay: 0s;');
+    expect(rule('.mm-notify-clear')).toContain('z-index: 1;');
+    expect(rule('.mm-notify-clear')).toMatch(/z-index 0s 0\.3s/);
   });
 
   describe('the default look', () => {

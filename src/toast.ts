@@ -119,12 +119,21 @@ function close(entry: Shown): void {
   if (at < 0) return;
   shown.splice(at, 1);
   const { item } = entry;
+  // A transition starts from the current value. Max-height's is far above the height,
+  // and the box wouldn't shrink until it got there; while growing, the browser doesn't
+  // transition from the animation's values. So first what the box is now, applied.
+  const now = getComputedStyle(item);
+  item.style.cssText = `animation:none;max-height:${now.height};padding-block:${now.paddingBlock};margin-bottom:${now.marginBottom};opacity:${now.opacity};transform:${now.transform}`;
+  item.getBoundingClientRect();
+  item.style.cssText = '';
   item.classList.add(OUT);
   const remove = (): void => {
     item.remove();
     if (!list.childElementCount) setOpen(false);
   };
-  setTimeout(remove, 300); // as long as the CSS transition, which reduced motion drops
+  // The CSS transition is 0.3s from the next frame, and reduced motion drops it. A
+  // little longer, or a late frame leaves the last pixels to drop at the removal.
+  setTimeout(remove, 350);
   showClearAll();
   if (config.sequential && !at) shown[0]?.sync();
 }

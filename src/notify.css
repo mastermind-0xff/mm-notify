@@ -46,10 +46,14 @@
   scrollbar-width: none;
 }
 
-/* The z-index: above messages scrolling by, which stack while they animate. */
+/* The negative margin takes back the list's bottom padding, so below the list the
+   gap is the last message's own margin. Above the list its margins already cancel.
+   The z-index: at rest above what scrolls under it (the list's clipping reaches into
+   it for the glow, and it has to stay readable and hit). While it comes and goes it
+   moves over the next message, so -1 until it has stopped: see the rule below. */
 .mm-notify-clear {
   z-index: 1;
-  margin: -0.5rem auto 0.625rem;
+  margin: -1.5rem auto 0.625rem;
   padding: 0.375rem 0.875rem;
   font: inherit;
   color: var(--notify-clear-color, #fff);
@@ -58,14 +62,18 @@
   border-radius: var(--notify-radius, 9px);
   cursor: pointer;
   pointer-events: auto;
-  transition: 0.3s ease-out;
+  transition:
+    0.3s ease-out,
+    z-index 0s 0.3s;
 }
 
 /* It keeps its place while gone, so it comes and goes with the stack. */
 .mm-notify-clear.mm-notify-out {
+  z-index: -1;
   visibility: hidden;
   opacity: 0;
   transform: translateY(var(--notify-slide, -1.25rem));
+  transition-delay: 0s;
 }
 
 .mm-notify {
@@ -83,10 +91,6 @@
   overflow: hidden;
   pointer-events: auto;
   animation: mm-notify-in 0.6s cubic-bezier(0.42, 0, 0.24, 0.99);
-  /* The closing: toast.ts removes it after these 0.3s. */
-  transition:
-    0.3s cubic-bezier(0, 1, 0.75, 1),
-    opacity 0.2s ease-out;
 }
 
 .mm-notify svg {
@@ -163,11 +167,24 @@
   transform: rotate(-45deg);
 }
 
+/* The closing: toast.ts starts it from what the box is now, and removes the message
+   just after these 0.3s. All on one curve, so they reach 0 together. The opacity is for
+   the glow, which a box of no height still casts. */
 .mm-notify.mm-notify-out {
   max-height: 0;
   margin-block: 0;
   padding-block: 0;
   opacity: 0;
+  animation: none;
+  transition:
+    0.3s cubic-bezier(0.42, 0, 0.24, 0.99),
+    opacity 0.3s ease-in;
+}
+
+/* Gone before the box starts to crop them: by time, as their share of its height varies. */
+.mm-notify.mm-notify-out > * {
+  opacity: 0;
+  transition: opacity 0.1s ease-out;
 }
 
 /* It grows from nothing, so everything else in the stack moves out of its way. */
@@ -187,6 +204,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .mm-notify,
+  .mm-notify.mm-notify-out,
+  .mm-notify.mm-notify-out > *,
   .mm-notify-clear {
     animation: none;
     transition: none;

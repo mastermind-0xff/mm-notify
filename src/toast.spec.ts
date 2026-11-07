@@ -179,11 +179,11 @@ describe('toast: the popover', () => {
     nextFrame();
     expect(isOpen(region())).toBe(true);
     items()[0]!.querySelector('button')!.click();
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(items()).toHaveLength(1);
     expect(isOpen(region())).toBe(true);
     items()[0]!.querySelector('button')!.click();
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(items()).toHaveLength(0);
     expect(isOpen(region())).toBe(false);
   });
@@ -218,7 +218,7 @@ describe('toast: the popover', () => {
     toast('One');
     nextFrame();
     items()[0]!.querySelector('button')!.click();
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(isOpen(region())).toBe(false);
     toast('Two');
     nextFrame();
@@ -565,7 +565,7 @@ describe('toast: clear all', () => {
     clearAll().click();
     expect(showing()).toHaveLength(0);
     expect(clearAllShown()).toBe(false);
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(items()).toHaveLength(0);
     expect(isOpen(region())).toBe(false);
   });
@@ -591,7 +591,7 @@ describe('toast: clear all', () => {
     clearAll().click();
     nextFrame();
     expect(showing()).toHaveLength(0);
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(items()).toHaveLength(0);
   });
 
@@ -721,15 +721,46 @@ describe('toast: closing', () => {
     toast('Hello');
     nextFrame();
     items()[0]!.querySelector('button')!.click();
-    vi.advanceTimersByTime(299);
+    vi.advanceTimersByTime(349);
     expect(items()).toHaveLength(1);
     vi.advanceTimersByTime(1);
     expect(items()).toHaveLength(0);
   });
 
-  it('removes it as long after as the CSS transition takes', () => {
+  it('removes it just after the CSS transition, which starts a frame late', () => {
     const css = readFileSync(join(import.meta.dirname, 'notify.css'), 'utf8');
     expect(css).toMatch(/transition:\s*0\.3s /);
+  });
+
+  it('starts the closing from what the box is now, applied before the class', () => {
+    toast('Hello');
+    nextFrame();
+    const item = items()[0]!;
+    const computed = vi.spyOn(globalThis, 'getComputedStyle').mockReturnValue({
+      height: '22px',
+      paddingBlock: '13px 12px',
+      marginBottom: '9px',
+      opacity: '0.5',
+      transform: 'none',
+    } as CSSStyleDeclaration);
+    let applied = '';
+    let closing = true;
+    vi.spyOn(item, 'getBoundingClientRect').mockImplementation(() => {
+      applied = item.style.cssText;
+      closing = item.classList.contains('mm-notify-out');
+      return new DOMRect();
+    });
+    item.querySelector('button')!.click();
+    computed.mockRestore();
+    expect(closing).toBe(false);
+    expect(applied).toContain('max-height: 22px');
+    expect(applied).toContain('padding-block: 13px 12px');
+    expect(applied).toContain('margin-bottom: 9px');
+    expect(applied).toContain('opacity: 0.5');
+    expect(applied).toContain('animation: none');
+    // Nothing inline stays, or it would win over the class.
+    expect(item.style.cssText).toBe('');
+    expect(item.classList).toContain('mm-notify-out');
   });
 
   it('closes once, however often it is asked', () => {
@@ -767,7 +798,7 @@ describe('fix: browsers without popover', () => {
     nextFrame();
     items()[0]!.querySelector('button')!.click();
     expect(() => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(350);
     }).not.toThrow();
     expect(items()).toHaveLength(0);
   });
@@ -835,7 +866,7 @@ describe('fix: a removal between opening and the next frame', () => {
     });
     toast('New');
     // the old one goes before the frame of the new one: the region is empty
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(350);
     expect(items()).toHaveLength(0);
     vi.unstubAllGlobals();
     frame?.(0);
