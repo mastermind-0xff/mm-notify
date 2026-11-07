@@ -73,7 +73,7 @@ let list!: HTMLElement;
 let clearAll!: HTMLButtonElement;
 
 function showClearAll(): void {
-  clearAll.hidden = shown.length < config.clearAllFrom;
+  clearAll.classList.toggle(OUT, shown.length < config.clearAllFrom);
   clearAll.textContent = config.clearAllLabel;
 }
 
@@ -185,7 +185,9 @@ export function toast(
   requestAnimationFrame(() => {
     if (item.classList.contains(OUT)) return; // cleared before its frame
     ownRegion();
-    list.append(item);
+    list.prepend(item); // the start of the stack, where `--notify-flow` puts it
+    // What it grows to, moving the stack smoothly: CSS can't animate to `auto`.
+    item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
     setOpen(true); // an earlier toast's removal may have closed it since
     entry.sync();
   });

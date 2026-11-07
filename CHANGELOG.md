@@ -12,7 +12,7 @@ Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.cs
   fallback, built from `src/notify.css` (also shipped as
   `@mmutils/notify/notify.css`). `--notify-*` custom properties for colors, glow and
   position; `mm-notify` class names.
-- `npm run size`: 2496 B minified and gzipped with the CSS, 123 B for the eager
+- `npm run size`: 2570 B minified and gzipped with the CSS, 123 B for the eager
   check, which loads no other chunk.
 - `examples/`: a page with every kind, position and option under a strict CSP
   (`npm run examples`), and a design tool that exports CSS, settings or a brief for an
@@ -24,10 +24,13 @@ Changed against the original:
 - The same text again shows a second message. It replaced the first.
 - `configure({ sequential: true })`: one timer at a time, oldest message first, and a
   message that stays until closed holds those behind it.
-- A clear-all button from three messages (`clearAllFrom`, `clearAllLabel`, and
-  `--notify-clear`, `--notify-clear-color`, `--notify-clear-order`).
-- Messages that don't fit the window scroll, so the button stays on screen. They ran
-  off it. The live region is now `.mm-notify-list`, inside the popover.
+- A clear-all button from three messages, which fades in and out (`clearAllFrom`,
+  `clearAllLabel`, `--notify-clear`, `--notify-clear-color`).
+- A new message comes in at the start of the stack, on top at the top and at the bottom
+  at the bottom (`--notify-flow`), and grows into place, so the whole stack moves
+  smoothly. It was always added at the end, and the stack jumped.
+- Messages that don't fit the window scroll, so the newest and the button stay on screen.
+  They ran off it. The live region is now `.mm-notify-list`, inside the popover.
 - A message is removed 0.3 s after it starts closing, always. It went at the first
   `transitionend`, the opacity's at 0.2 s, cutting the collapse short.
 

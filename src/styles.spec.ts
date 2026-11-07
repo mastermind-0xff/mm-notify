@@ -121,7 +121,8 @@ describe('notify.css', () => {
     const uses = [...code.matchAll(/var\((--[\w-]+)(,?)/g)];
     expect(uses.length).toBeGreaterThan(10);
     for (const [, name, comma] of uses) {
-      expect(name).toMatch(/^--notify-/);
+      // --mm-notify-: set by toast.ts on a message, not for a site to set.
+      expect(name).toMatch(/^--(mm-)?notify-/);
       expect(comma, name).toBe(',');
     }
   });
@@ -139,19 +140,43 @@ describe('notify.css', () => {
   });
 
   it('lets the messages scroll, so clear all stays on screen', () => {
-    expect(code).toMatch(/\.mm-notify-region \{[^}]*flex-direction: column;/);
     expect(code).toMatch(/\.mm-notify-list \{[^}]*overflow-y: auto;/);
+    // Or they would shrink to fit, instead of scrolling.
+    expect(code).toMatch(/\.mm-notify \{[^}]*flex: none;/);
   });
 
-  it('moves clear all above the messages with a token', () => {
-    expect(code).toMatch(
-      /\.mm-notify-clear \{[^}]*order: var\(--notify-clear-order, 0\);/
+  it('turns the whole stack around with one token', () => {
+    const flow = 'flex-direction: var(--notify-flow, column);';
+    expect(code).toContain(`.mm-notify-region {`);
+    for (const selector of ['region', 'list'])
+      expect(
+        new RegExp(`\\.mm-notify-${selector} \\{[^}]*`).exec(code)?.[0],
+        selector
+      ).toContain(flow);
+  });
+
+  it('grows a new message, so the stack moves instead of jumping', () => {
+    const keyframes = /@keyframes mm-notify-in \{[\s\S]*\}\s*\}/.exec(
+      code
+    )?.[0];
+    expect(keyframes).toMatch(/from \{[^}]*max-height: 0;/);
+    expect(keyframes).toMatch(/from \{[^}]*padding-block: 0;/);
+    expect(keyframes).toMatch(/from \{[^}]*margin-bottom: 0;/);
+    expect(keyframes).toMatch(
+      /to \{[^}]*max-height: var\(--mm-notify-height, 40vh\);/
     );
+  });
+
+  it('fades clear all in and out, out of reach while gone', () => {
+    expect(code).toMatch(/\.mm-notify-clear \{[^}]*transition:/);
+    const gone = /\.mm-notify-clear\.mm-notify-out \{[^}]*/.exec(code)?.[0];
+    expect(gone).toContain('opacity: 0;');
+    expect(gone).toContain('visibility: hidden;');
   });
 
   it('never animates for those who asked not to', () => {
     expect(code).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify \{\s*animation: none;\s*transition: none;/
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
     );
   });
 

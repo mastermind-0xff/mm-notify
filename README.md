@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 2.5 KB minified and gzipped, CSS included. No dependencies.
+- 2.6 KB minified and gzipped, CSS included. No dependencies.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -78,11 +78,14 @@ text shows nothing. Options:
 - The time runs only while neither the pointer nor the focus is on the message.
 - The text goes through `textContent`. There are no HTML messages.
 
-From three messages a **Clear all** button appears, which closes them all, those that
-stay until closed too. It sits below the messages, or above them with the bottom
-positions (`--notify-clear-order: -1`, see "Position"). When the messages don't fit the
-window they scroll, under the wheel or a finger on a message, and the button stays on
-screen.
+A new message comes in at the start of the stack: on top for the top positions, at the
+bottom for the bottom positions (`--notify-flow`, see "Position"). It grows into place, so
+the rest of the stack moves out of its way smoothly.
+
+From three messages a **Clear all** button fades in, which closes them all, those that
+stay until closed too. It sits at the far end of the stack: below the messages at the top,
+above them at the bottom. When the messages don't fit the window they scroll, under the
+wheel or a finger on a message, and the newest and the button stay on screen.
 
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
@@ -147,7 +150,7 @@ cascade order.
 | `--notify-neutral`, `--notify-neutral-glow`                          | `#3ec9ff`, `rgb(62 201 255 / 0.3)` |
 | `--notify-radius`, `--notify-font-size`                              | `9px`, `1rem`                      |
 | `--notify-clear`, `--notify-clear-color`: the clear-all button       | `#111`, `#fff`                     |
-| `--notify-clear-order`: `-1` puts that button above the messages     | `0`                                |
+| `--notify-flow`: which way the stack grows                           | `column`                           |
 
 The default colors keep 4.5:1 with the dark text; white text fails on them. If you
 change them, check the contrast yourself.
@@ -171,7 +174,7 @@ Top center is the default. A corner is a CSS-only change:
   --notify-left: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
-  --notify-clear-order: -1;
+  --notify-flow: column-reverse;
 }
 
 /* under a sticky header: the height keeps the messages and the button on screen */
@@ -211,13 +214,13 @@ popover or dialog. The CSS has no nesting and uses `transform` for the same brow
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (2500 B for the package, 200 B for the eager check) or when the eager code
+budgets (2700 B for the package, 200 B for the eager check) or when the eager code
 would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 5752     | 2496 | 2171   |
-| `toast` alone             | 5270     | 2280 | 1977   |
+| The package, with its CSS | 6118     | 2570 | 2230   |
+| `toast` alone             | 5636     | 2355 | 2052   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 0    | 0      |
 

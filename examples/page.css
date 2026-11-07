@@ -27,7 +27,7 @@
   --notify-right: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
-  --notify-clear-order: -1;
+  --notify-flow: column-reverse;
   --notify-width: min(24rem, calc(100vw - 2rem));
 }
 
@@ -37,7 +37,7 @@
   --notify-left: 1rem;
   --notify-shift: 0;
   --notify-slide: 1.25rem;
-  --notify-clear-order: -1;
+  --notify-flow: column-reverse;
   --notify-width: min(24rem, calc(100vw - 2rem));
 }
 

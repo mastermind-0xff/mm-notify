@@ -176,7 +176,7 @@ function tokensOf(v) {
       : 'auto',
     '--notify-shift': center ? '-50%' : '0',
     '--notify-slide': bottom ? '1.25rem' : '-1.25rem',
-    '--notify-clear-order': bottom ? '-1' : '0',
+    '--notify-flow': bottom ? 'column-reverse' : 'column',
     '--notify-width': `min(${v.width}rem, calc(100vw - 2rem))`,
     // Bottom: the messages keep 2rem of their own below. Clear all stays on screen.
     '--notify-max-height': `calc(100dvh - ${v.edge + (bottom ? 2 : 1)}rem)`,

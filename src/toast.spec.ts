@@ -28,9 +28,9 @@ async function load(): Promise<void> {
 const region = (): HTMLElement =>
   document.querySelector<HTMLElement>('.mm-notify-region')!;
 
-const items = (): HTMLElement[] => [
-  ...document.querySelectorAll<HTMLElement>('.mm-notify'),
-];
+/** Oldest first. The page has them the other way round: the newest at the start. */
+const items = (): HTMLElement[] =>
+  [...document.querySelectorAll<HTMLElement>('.mm-notify')].reverse();
 
 const showing = (): HTMLElement[] =>
   items().filter((item) => !item.classList.contains('mm-notify-out'));
@@ -41,6 +41,9 @@ const list = (): HTMLElement =>
 
 const clearAll = (): HTMLButtonElement =>
   document.querySelector<HTMLButtonElement>('.mm-notify-clear')!;
+
+const clearAllShown = (): boolean =>
+  !clearAll().classList.contains('mm-notify-out');
 
 const texts = (): (string | null)[] =>
   showing().map((item) => item.querySelector('p')!.textContent);
@@ -270,6 +273,49 @@ describe('toast: screen readers', () => {
     nextFrame();
     expect(document.querySelectorAll('.mm-notify-region')).toHaveLength(1);
     expect(items()).toHaveLength(1);
+  });
+});
+
+describe('toast: the stack', () => {
+  const inPage = (): (string | null)[] =>
+    [...list().children].map((item) => item.querySelector('p')!.textContent);
+
+  it('puts a new message at the start of the list', () => {
+    toast('One');
+    nextFrame();
+    toast('Two');
+    nextFrame();
+    toast('Three');
+    nextFrame();
+    expect(inPage()).toEqual(['Three', 'Two', 'One']);
+  });
+
+  it('keeps the order of messages from one frame', () => {
+    toast('One');
+    toast('Two');
+    nextFrame();
+    expect(inPage()).toEqual(['Two', 'One']);
+  });
+
+  it('tells the CSS how tall a message is, for growing to it', () => {
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(42);
+    toast('One');
+    nextFrame();
+    expect(list().firstElementChild!.getAttribute('style') ?? '').toMatch(
+      /--mm-notify-height:\s*42px/
+    );
+    height.mockRestore();
+  });
+
+  it('closes the oldest first in sequential mode, wherever it sits', () => {
+    configure({ sequential: true });
+    toast('One', 'success');
+    toast('Two', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual(['Two']);
   });
 });
 
@@ -503,12 +549,12 @@ describe('toast: clear all', () => {
     toast('One');
     toast('Two');
     nextFrame();
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
     toast('Three');
     nextFrame();
-    expect(clearAll().hidden).toBe(false);
+    expect(clearAllShown()).toBe(true);
     closeButton('Three').click();
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
   });
 
   it('closes every message, permanent ones too, and the popover', () => {
@@ -518,7 +564,7 @@ describe('toast: clear all', () => {
     nextFrame();
     clearAll().click();
     expect(showing()).toHaveLength(0);
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
     vi.advanceTimersByTime(300);
     expect(items()).toHaveLength(0);
     expect(isOpen(region())).toBe(false);
@@ -563,10 +609,10 @@ describe('toast: clear all', () => {
     configure({ clearAllLabel: 'Tout effacer', clearAllFrom: 2 });
     toast('One');
     nextFrame();
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
     toast('Two');
     nextFrame();
-    expect(clearAll().hidden).toBe(false);
+    expect(clearAllShown()).toBe(true);
     expect(clearAll().textContent).toBe('Tout effacer');
   });
 
@@ -574,7 +620,7 @@ describe('toast: clear all', () => {
     configure({ clearAllFrom: Infinity });
     for (const text of ['1', '2', '3', '4', '5', '6']) toast(text);
     nextFrame();
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
   });
 
   it('does not count what left with the page', () => {
@@ -584,7 +630,7 @@ describe('toast: clear all', () => {
     document.body.replaceChildren();
     toast('Three');
     nextFrame();
-    expect(clearAll().hidden).toBe(true);
+    expect(clearAllShown()).toBe(false);
   });
 });
 
