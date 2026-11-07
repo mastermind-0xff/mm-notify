@@ -2,6 +2,8 @@
 node_modules
 dist
 coverage
+test-results
+playwright-report
 *.tgz
 
 # local only: assistant settings, plan and notes; reference material

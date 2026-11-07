@@ -9,6 +9,8 @@ export default tseslint.config(
       'dist',
       'node_modules',
       'coverage',
+      'test-results',
+      'playwright-report',
       // local notes and references, git-ignored
       '.claude',
       'resources',
@@ -25,6 +27,11 @@ export default tseslint.config(
     files: ['examples/**/*.js'],
     ignores: ['examples/server.js'],
     languageOptions: { globals: globals.browser },
+  },
+  {
+    // Playwright's tests run in Node and hand functions to the browser
+    files: ['browser-tests/**/*.js'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ['src/**/*.ts'],

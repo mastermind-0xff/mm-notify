@@ -58,7 +58,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "prepublishOnly": "npm run check && npm run build",
     "size": "npm run build && node scripts/size.js",
-    "examples": "npm run build && node examples/server.js"
+    "examples": "npm run build && node examples/server.js",
+    "test:browsers": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
