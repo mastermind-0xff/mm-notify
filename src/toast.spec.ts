@@ -623,6 +623,16 @@ describe('toast: clear all', () => {
     expect(clearAllShown()).toBe(false);
   });
 
+  it('never appears with clearAllFrom: 0, with messages or without', () => {
+    configure({ clearAllFrom: 0 });
+    toast('One', 'success');
+    nextFrame();
+    expect(clearAllShown()).toBe(false);
+    vi.advanceTimersByTime(5000);
+    expect(showing()).toHaveLength(0);
+    expect(clearAllShown()).toBe(false);
+  });
+
   it('does not count what left with the page', () => {
     toast('One', 'error');
     toast('Two', 'error');

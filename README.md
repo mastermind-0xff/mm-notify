@@ -119,14 +119,14 @@ configure({
 export { flash, showFlash, toast } from '@mmutils/notify';
 ```
 
-| Option          | Default             | Meaning                                                     |
-| --------------- | ------------------- | ----------------------------------------------------------- |
-| `closeLabel`    | `Close the message` | The close button's label, for screen readers.               |
-| `clearAllLabel` | `Clear all`         | The clear-all button's text.                                |
-| `clearAllFrom`  | `3`                 | How many messages bring up that button. `Infinity`: never.  |
-| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed. |
-| `sequential`    | `false`             | One timer at a time, see below.                             |
-| `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".  |
+| Option          | Default             | Meaning                                                           |
+| --------------- | ------------------- | ----------------------------------------------------------------- |
+| `closeLabel`    | `Close the message` | The close button's label, for screen readers.                     |
+| `clearAllLabel` | `Clear all`         | The clear-all button's text.                                      |
+| `clearAllFrom`  | `3`                 | How many messages bring up that button. `0` or `Infinity`: never. |
+| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.       |
+| `sequential`    | `false`             | One timer at a time, see below.                                   |
+| `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".        |
 
 **`sequential`:** normally every message counts down at once. With `true` one timer
 runs at a time, oldest message first: three messages of 5 s close at 5, 10 and 15 s. A

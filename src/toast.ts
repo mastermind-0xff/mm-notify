@@ -73,7 +73,10 @@ let list!: HTMLElement;
 let clearAll!: HTMLButtonElement;
 
 function showClearAll(): void {
-  clearAll.classList.toggle(OUT, shown.length < config.clearAllFrom);
+  clearAll.classList.toggle(
+    OUT,
+    !config.clearAllFrom || shown.length < config.clearAllFrom
+  );
   clearAll.textContent = config.clearAllLabel;
 }
 

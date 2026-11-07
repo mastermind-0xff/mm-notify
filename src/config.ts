@@ -7,7 +7,7 @@ export interface NotifyConfig {
   readonly closeLabel?: string;
   /** The clear-all button's text. */
   readonly clearAllLabel?: string;
-  /** How many messages bring up the clear-all button. `Infinity`: never. */
+  /** How many messages bring up the clear-all button. `0` or `Infinity`: never. */
   readonly clearAllFrom?: number;
   /** Milliseconds on screen per kind; 0 keeps it until closed. */
   readonly durations?: Readonly<Partial<Record<ToastKind, number>>>;
