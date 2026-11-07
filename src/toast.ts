@@ -66,6 +66,8 @@ interface Shown {
 
 /** What is on screen or about to be, oldest first. */
 let shown: Shown[] = [];
+/** The z-index of the newest message in a stack that grows downwards. */
+let depth = 0;
 
 let region: HTMLElement | undefined;
 /** The live region: only messages, or the button below would be read out as one. */
@@ -123,9 +125,10 @@ function close(entry: Shown): void {
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
   // transition from the animation's values. So first what the box is now, applied.
   const now = getComputedStyle(item);
+  const { zIndex } = item.style;
   item.style.cssText = `animation:none;max-height:${now.height};padding-block:${now.paddingBlock};margin-bottom:${now.marginBottom};opacity:${now.opacity};transform:${now.transform}`;
   item.getBoundingClientRect();
-  item.style.cssText = '';
+  item.style.cssText = `z-index:${zIndex}`;
   item.classList.add(OUT);
   const remove = (): void => {
     item.remove();
@@ -200,6 +203,10 @@ export function toast(
     list.prepend(item); // the start of the stack, where `--notify-flow` puts it
     // What it grows to, moving the stack smoothly: CSS can't animate to `auto`.
     item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
+    // A glow falls downwards, so the lower message must paint over the upper. Prepending
+    // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
+    if (getComputedStyle(list).flexDirection === 'column-reverse')
+      item.style.zIndex = String(++depth);
     setOpen(true); // an earlier toast's removal may have closed it since
     entry.sync();
   });

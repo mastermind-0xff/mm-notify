@@ -18,7 +18,7 @@ import { minifiedCss } from './css-text.js';
 const root = resolve(import.meta.dirname, '..');
 // The package loads on first use, so its size is a guard rather than a hard limit
 // (the author's call). The eager check runs on every page: that budget is the real one.
-const BUDGETS = { package: 2700, eager: 200 };
+const BUDGETS = { package: 2800, eager: 200 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>

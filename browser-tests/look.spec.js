@@ -71,22 +71,15 @@ async function pixelsDown(page, buffer, offsets) {
 }
 
 for (const { name, attribute } of POSITIONS) {
-  // FINDING 2, in Firefox and WebKit a glow falls on the message below it, in the bottom
-  // positions only. `column-reverse` shows the DOM's order upside down: there the message
-  // above comes later in the DOM, is painted later, and its shadow (12 px down, 18 px blur)
-  // lands on the top of the next. Chromium doesn't show it. Measured on the error message's
-  // top edge, under a success message: Firefox 159 rgb(204, 85, 70), WebKit 27.2
-  // rgb(201, 88, 70), Chromium, Chrome and Edge the flat rgb(239, 64, 60). Seen in the
-  // screenshots too. When this flips, the `test.fail` goes.
+  // The lower message paints over the glow of the upper. `column-reverse` shows the DOM's
+  // order upside down, so the bottom positions need the z-index from toast.ts. Without it:
+  // Firefox 159 rgb(204, 85, 70) and WebKit 27.2 rgb(201, 88, 70) on an error's top edge,
+  // instead of the flat rgb(239, 64, 60). Chromium's engines didn't show it either way.
   test(`${name}: a message's color isn't tinted by the glow of the next`, async ({
     page,
     problems,
     browserName,
   }) => {
-    test.fail(
-      browserName !== 'chromium' && name === 'bottom',
-      'Finding 2: see the comment above'
-    );
     if (browserName === 'webkit')
       problems.provoked.push(
         /Refused to apply a stylesheet|style-src-elem: inline/

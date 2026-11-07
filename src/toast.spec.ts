@@ -763,6 +763,26 @@ describe('toast: closing', () => {
     expect(item.classList).toContain('mm-notify-out');
   });
 
+  it('paints a lower message over the glow of the upper, when the DOM is upside down', () => {
+    toast('First');
+    nextFrame();
+    list().style.flexDirection = 'column-reverse';
+    toast('Second');
+    nextFrame();
+    toast('Third');
+    nextFrame();
+    const [first, second, third] = items();
+    expect(first!.style.zIndex).toBe('');
+    expect(Number(third!.style.zIndex)).toBeGreaterThan(
+      Number(second!.style.zIndex)
+    );
+    expect(Number(second!.style.zIndex)).toBeGreaterThan(0);
+    // Also while it closes, or its fading glow would fall on the next.
+    const { zIndex } = second!.style;
+    closeButton('Second').click();
+    expect(second!.style.zIndex).toBe(zIndex);
+  });
+
   it('closes once, however often it is asked', () => {
     toast('Hello', 'neutral', { timeoutMs: 100 });
     nextFrame();

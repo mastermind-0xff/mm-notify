@@ -319,8 +319,9 @@ for (const { name, attribute, sign } of POSITIONS) {
     for (const d of moved) expect(sign * d).toBeGreaterThanOrEqual(-0.01);
 
     // Frames on time: several steps, and nothing left. WebKit here skips frames (gaps of 70 to 300 ms, with
-    // Chromium at 16 ms in the same run), and a loaded machine may too: see the next test
-    // for what that does, this one only keeps a record of it.
+    // Chromium at 16 ms in the same run), and a loaded machine may too. Then the removal can
+    // cut the transition short: a known artifact of the fixed timer, left on the user's
+    // decision (plan §7 N10), so this only keeps a record of it.
     const gaps = frames.slice(1).map((f, i) => f.at - frames[i].at);
     const worst = Math.max(...gaps);
     testInfo.annotations.push({
@@ -331,37 +332,6 @@ for (const { name, attribute, sign } of POSITIONS) {
       expect(moved.filter((d) => Math.abs(d) > 0.01).length).toBeGreaterThan(3);
       expect(jump).toBeLessThanOrEqual(0.5);
     }
-  });
-
-  // FINDING 1, the removal is a fixed timer: `close` in toast.ts removes the message 350 ms
-  // after the click, and the 300 ms transition only counts from a frame. Where that frame is
-  // late the removal cuts it short and the neighbour jumps. Measured with the main thread busy
-  // for 200 ms right after the click: Chromium 158, Chrome 156, Edge 157 always, 11 to 21 px.
-  // 100 ms: 0.5 to 1.2 px. CPU throttled (Chromium) 20 times: up to 59 px; 4 and 6 times: 0.
-  // WebKit 27.2 varies with the machine's load: mostly 0 to 2.7 px, the whole 60.4 px in 3 of 12
-  // samples in full-suite runs. Firefox 159: mostly 0, 5.4 px twice. So only Chromium's engine can be
-  // held to it here; the others keep a record (annotation `removal`), or they would be flaky.
-  // When this flips, the `test.fail` goes and the limit applies to all.
-  test(`${name}: a busy main thread at the click doesn't make the removal jump`, async ({
-    page,
-    browserName,
-  }, testInfo) => {
-    test.fail(browserName === 'chromium', 'Finding 1: see the comment above');
-    await open(page, { position: attribute });
-    await page.evaluate(async () => {
-      for (const text of ['Older.', 'Middle.', 'Newer.', 'Newest.'])
-        await window.t.toast(text, 'neutral', { timeoutMs: 0 });
-    });
-    await expect(page.locator('.mm-notify')).toHaveCount(4);
-    const { jump } = await page.evaluate(() => {
-      window.t.settle();
-      return window.t.closeAndWatchRemoval('Middle.', 'Older.', 200);
-    });
-    testInfo.annotations.push({
-      type: 'removal',
-      description: `busy 200 ms: jump ${jump.toFixed(2)} px`,
-    });
-    if (browserName === 'chromium') expect(jump).toBeLessThanOrEqual(3);
   });
 }
 

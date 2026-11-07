@@ -12,7 +12,7 @@ Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.cs
   fallback, built from `src/notify.css` (also shipped as
   `@mmutils/notify/notify.css`). `--notify-*` custom properties for colors, glow and
   position; `mm-notify` class names.
-- `npm run size`: 2570 B minified and gzipped with the CSS, 123 B for the eager
+- `npm run size`: 2755 B minified and gzipped with the CSS, 123 B for the eager
   check, which loads no other chunk.
 - `examples/`: a page to try the kinds, positions and options under a strict CSP
   (`npm run examples`), and a design tool that exports CSS, settings or a brief for an
@@ -34,6 +34,8 @@ Changed against the original:
 - A closing message shrinks from its real height to 0 in 0.3 s, its contents gone in the
   first 0.1 s, and is removed at 0.35 s, always. It went at the first `transitionend`, the
   opacity's at 0.2 s, cutting the collapse short.
+- In the bottom positions a lower message paints over the glow of the one above it, as in
+  the top positions. In Firefox and WebKit that glow tinted its top edge.
 
 Fixed against the original, each with a test that failed first, except the last
 (CSS layout, reproduced in Chrome by turning the rule off):

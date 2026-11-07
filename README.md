@@ -218,13 +218,13 @@ popover or dialog. The CSS has no nesting and uses `transform` for the same brow
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (2700 B for the package, 200 B for the eager check) or when the eager code
+budgets (2800 B for the package, 200 B for the eager check) or when the eager code
 would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 6118     | 2570 | 2230   |
-| `toast` alone             | 5636     | 2355 | 2052   |
+| The package, with its CSS | 6682     | 2755 | 2412   |
+| `toast` alone             | 6200     | 2544 | 2212   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 

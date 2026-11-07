@@ -96,9 +96,8 @@ window.t = {
   /**
    * Closes a message in real time and measures in the same task as its removal: where the
    * neighbour is just before and just after, so frames in between don't count as a jump.
-   * `blockMs` keeps the main thread busy right after the click, as a slow handler would.
    */
-  closeAndWatchRemoval(text, neighbourText, blockMs = 0) {
+  closeAndWatchRemoval(text, neighbourText) {
     const item = this.item(text);
     const neighbour = this.item(neighbourText);
     return new Promise((resolve) => {
@@ -113,11 +112,7 @@ window.t = {
       };
       const frame = () => {
         frames.push({ at: performance.now(), top: top() });
-        if (frames.length === 3) {
-          item.querySelector('.mm-notify-close').click();
-          const until = performance.now() + blockMs;
-          while (performance.now() < until);
-        }
+        if (frames.length === 3) item.querySelector('.mm-notify-close').click();
         if (result) resolve({ ...result, frames });
         else requestAnimationFrame(frame);
       };
