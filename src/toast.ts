@@ -77,6 +77,30 @@ let region: HTMLElement | undefined;
 /** The live region: only messages, or the button below would be read out as one. */
 let list!: HTMLElement;
 let clearAll!: HTMLButtonElement;
+let watch: ResizeObserver | undefined;
+
+/** A bottom position: `--notify-flow: column-reverse` shows the DOM upside down. */
+const reversed = (): boolean =>
+  getComputedStyle(list).flexDirection === 'column-reverse';
+
+/**
+ * Pins clear all to the far edge of the screen while the stack doesn't fit (CSS
+ * `.mm-notify-pinned`). The region spans the screen from where the stack starts to
+ * the far edge, laid out from the site's tokens, so its height is the room there
+ * is: no `dvh` needed. The flow decides which edge is the far one. The gap: the
+ * button's own below it, and as much again above it when pinned at the top.
+ */
+function fit(): void {
+  if (!region) return;
+  const up = reversed();
+  const gap = parseFloat(getComputedStyle(clearAll).marginBottom);
+  region.classList.toggle('mm-notify-up', up);
+  region.classList.toggle(
+    'mm-notify-pinned',
+    list.offsetHeight + clearAll.offsetHeight + gap * (up ? 2 : 1) >
+      region.clientHeight
+  );
+}
 
 function showClearAll(): void {
   clearAll.classList.toggle(
@@ -104,6 +128,15 @@ function ownRegion(): void {
   showClearAll();
   region.append(list, clearAll);
   document.body.append(region);
+  // The list's size changes with every message that grows or shrinks, the room
+  // with the window (a phone's address bar too). The same listener is added once.
+  addEventListener('resize', fit);
+  try {
+    (watch ??= new ResizeObserver(fit)).observe(list);
+  } catch {
+    // Too old a browser: the button stays at the end of the stack.
+  }
+  fit();
 }
 
 /**
@@ -224,8 +257,7 @@ export function toast(
     item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
     // A glow falls downwards, so the lower message must paint over the upper. Prepending
     // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
-    if (getComputedStyle(list).flexDirection === 'column-reverse')
-      item.style.zIndex = String(++depth);
+    if (reversed()) item.style.zIndex = String(++depth);
     setOpen(true); // an earlier toast's removal may have closed it since
     entry.sync();
   });

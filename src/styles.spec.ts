@@ -139,10 +139,31 @@ describe('notify.css', () => {
     expect(code).toMatch(/z-index: \d+/);
   });
 
-  it('lets the messages scroll, so clear all stays on screen', () => {
-    expect(code).toMatch(/\.mm-notify-list \{[^}]*overflow-y: auto;/);
-    // Or they would shrink to fit, instead of scrolling.
+  it('never scrolls the messages: clear all is pinned instead (toast.ts)', () => {
+    expect(code).not.toMatch(/overflow-y|dvh|--notify-max-height/);
+    // Or they would shrink to fit the region, which spans the screen.
     expect(code).toMatch(/\.mm-notify \{[^}]*flex: none;/);
+    expect(code).toMatch(/\.mm-notify-list \{[^}]*flex: none;/);
+  });
+
+  it('spans the screen from the start of the stack to the far edge', () => {
+    expect(code).toMatch(
+      /\.mm-notify-region \{[^}]*inset: var\(--notify-top, 1rem\) var\(--notify-right, auto\)\s+var\(--notify-pin-bottom, 0\) var\(--notify-left, 50%\);/
+    );
+    // A popover's own height is fit-content, which would ignore the insets.
+    expect(code).toMatch(/\.mm-notify-region \{[^}]*height: auto;/);
+    expect(code).toMatch(
+      /\.mm-notify-up \{\s*top: var\(--notify-pin-top, 0\);\s*bottom: var\(--notify-bottom, auto\);/
+    );
+  });
+
+  it('pins clear all as a full row, the message gap from the edge', () => {
+    expect(code).toMatch(
+      /\.mm-notify-pinned \.mm-notify-clear \{\s*position: absolute;\s*inset: auto 0 0;/
+    );
+    expect(code).toMatch(
+      /\.mm-notify-pinned\.mm-notify-up \.mm-notify-clear \{\s*inset: 0\.625rem 0 auto;/
+    );
   });
 
   it('measures a message as content-box, whatever the site sets for all', () => {
@@ -203,10 +224,10 @@ describe('notify.css', () => {
     expect(rule('.mm-notify')).not.toContain('transition');
   });
 
-  it('takes back the list padding, so clear all sits one message gap away', () => {
-    const padding = /padding: \S+ \S+ (\S+);/.exec(rule('.mm-notify-list'));
-    const margin = /margin: (\S+) /.exec(rule('.mm-notify-clear'));
-    expect(margin?.[1]).toBe(`-${padding?.[1] ?? ''}`);
+  it('keeps clear all one message gap from the messages', () => {
+    const gap = /margin-bottom: (\S+);/.exec(rule('.mm-notify'))?.[1];
+    expect(rule('.mm-notify-list')).not.toMatch(/margin|padding/);
+    expect(rule('.mm-notify-clear')).toContain(`margin: 0 auto ${gap ?? '?'};`);
   });
 
   it('moves clear all under the messages, and raises it once it has stopped', () => {

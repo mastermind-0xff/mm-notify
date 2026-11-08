@@ -145,25 +145,25 @@ for (const { name, attribute, sign } of POSITIONS) {
       close(gap, between, 0.1, 'to the button');
     });
 
-    test('with thirty messages the list scrolls, the newest and the button stay on screen, and a click clears all', async ({
+    test('with thirty messages the button is pinned on screen, the newest too, and a click clears all', async ({
       page,
-    }, testInfo) => {
+    }) => {
       await open(page, { position: attribute });
       await page.locator('#flood').dispatchEvent('click');
       await expect(page.locator('.mm-notify')).toHaveCount(30);
       const view = () =>
         page.evaluate(() => {
           const { t } = window;
-          const list = document.querySelector('.mm-notify-list');
+          t.settle();
           const button = t.clearAll();
           const box = button.getBoundingClientRect();
-          const newest = t.item('Permanent message 30.');
-          const rect = newest.getBoundingClientRect();
+          const rect = t.item('Permanent message 30.').getBoundingClientRect();
           return {
             innerHeight,
             scrollY,
-            scrollTop: list.scrollTop,
-            scrollable: list.scrollHeight > list.clientHeight,
+            pinned: document
+              .querySelector('.mm-notify-region')
+              .classList.contains('mm-notify-pinned'),
             button: { top: box.top, bottom: box.bottom },
             hit: t.hits(
               button,
@@ -171,45 +171,16 @@ for (const { name, attribute, sign } of POSITIONS) {
               (box.top + box.bottom) / 2
             ),
             newest: { top: rect.top, bottom: rect.bottom },
-            x: (rect.left + rect.right) / 2,
-            y: (rect.top + rect.bottom) / 2,
           };
         });
-      await page.evaluate(() => {
-        window.t.settle();
-      });
-
-      const before = await view();
-      expect(before.scrollable).toBe(true);
-      expect(before.hit).toBe(true);
-      expect(before.button.top).toBeGreaterThanOrEqual(0);
-      expect(before.button.bottom).toBeLessThanOrEqual(before.innerHeight);
-      expect(before.newest.top).toBeGreaterThanOrEqual(0);
-      expect(before.newest.bottom).toBeLessThanOrEqual(before.innerHeight);
-
-      // The wheel on a message: towards the older ones, whichever way that is.
-      await page.mouse.move(before.x, before.y);
-      // A notch can be lost right after layout changed (once in Edge, list at 0 for 5 s),
-      // and a person just turns the wheel again: so does this, with a record of it.
-      let notches = 0;
-      await expect(async () => {
-        notches += 1;
-        await page.mouse.wheel(0, sign * -300);
-        await expect
-          .poll(async () => Math.abs((await view()).scrollTop), {
-            timeout: 1_500,
-          })
-          .toBeGreaterThan(100);
-      }).toPass({ timeout: 10_000 });
-      testInfo.annotations.push({
-        type: 'wheel',
-        description: `${notches} notch(es)`,
-      });
-      const after = await view();
-      expect(after.scrollY).toBe(0);
-      expect(after.hit).toBe(true);
-      expect(after.button.top).toBeGreaterThanOrEqual(0);
-      expect(after.button.bottom).toBeLessThanOrEqual(after.innerHeight);
+      await expect.poll(async () => (await view()).pinned).toBe(true);
+      const seen = await view();
+      expect(seen.hit).toBe(true);
+      expect(seen.scrollY).toBe(0);
+      expect(seen.button.top).toBeGreaterThanOrEqual(0);
+      expect(seen.button.bottom).toBeLessThanOrEqual(seen.innerHeight);
+      expect(seen.newest.top).toBeGreaterThanOrEqual(0);
+      expect(seen.newest.bottom).toBeLessThanOrEqual(seen.innerHeight);
 
       // A real click, which Playwright does only on what the point really hits.
       await page.locator('.mm-notify-clear').click();

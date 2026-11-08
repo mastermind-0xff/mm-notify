@@ -180,8 +180,9 @@ function tokensOf(v) {
     '--notify-slide': bottom ? '1.25rem' : '-1.25rem',
     '--notify-flow': bottom ? 'column-reverse' : 'column',
     '--notify-width': `min(${v.width}rem, calc(100vw - 2rem))`,
-    // Bottom: the messages keep 2rem of their own below. Clear all stays on screen.
-    '--notify-max-height': `calc(100dvh - ${v.edge + (bottom ? 2 : 1)}rem)`,
+    // Where a pinned clear all stops short of the far edge (a fixed header or footer).
+    '--notify-pin-top': '0',
+    '--notify-pin-bottom': '0',
     '--notify-color': v.text,
     '--notify-radius': length(v.radius, 'px'),
     '--notify-font-size': `${v.fontSize}rem`,

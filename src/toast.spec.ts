@@ -896,6 +896,97 @@ describe('toast: closing', () => {
   });
 });
 
+describe('toast: clear all pinned when the stack does not fit', () => {
+  // happy-dom lays nothing out: the sizes are set here. The region spans the room.
+  let room = 500;
+  let stack = 100;
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(
+      function (this: HTMLElement) {
+        return this.classList.contains('mm-notify-region') ? room : 0;
+      }
+    );
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(
+      function (this: HTMLElement) {
+        if (this.classList.contains('mm-notify-list')) return stack;
+        return this.classList.contains('mm-notify-clear') ? 36 : 0;
+      }
+    );
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    room = 500;
+    stack = 100;
+  });
+
+  const pinned = (): boolean => region().classList.contains('mm-notify-pinned');
+
+  it('is not pinned while the stack fits', () => {
+    toast('One');
+    nextFrame();
+    expect(pinned()).toBe(false);
+  });
+
+  it('pins when the stack and the button outgrow the room, and lets go when they fit', () => {
+    toast('One');
+    nextFrame();
+    stack = 470;
+    dispatchEvent(new Event('resize'));
+    expect(pinned()).toBe(true);
+    stack = 400;
+    dispatchEvent(new Event('resize'));
+    expect(pinned()).toBe(false);
+    room = 300;
+    dispatchEvent(new Event('resize'));
+    expect(pinned()).toBe(true);
+  });
+
+  it('knows the bottom positions by the flow', () => {
+    toast('One');
+    nextFrame();
+    expect(region().classList).not.toContain('mm-notify-up');
+    list().style.flexDirection = 'column-reverse';
+    dispatchEvent(new Event('resize'));
+    expect(region().classList).toContain('mm-notify-up');
+  });
+
+  it('watches the list with a ResizeObserver, created once', async () => {
+    const observed: Element[] = [];
+    let made = 0;
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor() {
+          made += 1;
+        }
+        observe(element: Element): void {
+          observed.push(element);
+        }
+      }
+    );
+    await load();
+    toast('One');
+    region().remove();
+    toast('Two');
+    expect(made).toBe(1);
+    expect(observed).toHaveLength(2);
+    expect(observed[1]).toBe(list());
+    expect(observed[0]).not.toBe(list());
+    vi.unstubAllGlobals();
+  });
+
+  it('does without a ResizeObserver', async () => {
+    vi.stubGlobal('ResizeObserver', undefined);
+    await load();
+    expect(() => {
+      toast('One');
+      nextFrame();
+    }).not.toThrow();
+    expect(texts()).toEqual(['One']);
+    vi.unstubAllGlobals();
+  });
+});
+
 // Plan §4: found by reading the original code, each reproduced here first.
 describe('fix: browsers without popover', () => {
   beforeEach(() => {
