@@ -432,6 +432,40 @@ describe('toast: the same text twice, by default', () => {
     expect(texts()).toEqual(['Saved']);
   });
 
+  it('reads out one shown unannounced when the repeat is announced', () => {
+    toast('Something went wrong.', 'error', { announce: false });
+    nextFrame();
+    const before = textNode();
+    toast('Something went wrong.', 'error', { announce: false });
+    expect(items()[0]!.getAttribute('aria-hidden')).toBe('true');
+    expect(textNode()).toBe(before);
+    toast('Something went wrong.', 'error');
+    expect(items()[0]!.hasAttribute('aria-hidden')).toBe(false);
+    expect(textNode()).not.toBe(before);
+  });
+
+  it('stays until closed when the repeat asks for it', () => {
+    toast('Connection lost', 'error');
+    nextFrame();
+    toast('Connection lost', 'error', { timeoutMs: 0 });
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Connection lost']);
+  });
+
+  it('takes the longer time of the two, never a shorter one', () => {
+    toast('Saved', 'success', { timeoutMs: 20_000 });
+    nextFrame();
+    vi.advanceTimersByTime(1000);
+    toast('Saved', 'success');
+    vi.advanceTimersByTime(19_999);
+    expect(texts()).toEqual(['Saved']);
+    toast('Saved', 'success', { timeoutMs: 30_000 });
+    vi.advanceTimersByTime(29_999);
+    expect(texts()).toEqual(['Saved']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
   it('shows it again once the first is closing', () => {
     toast('Saved', 'success');
     nextFrame();

@@ -64,8 +64,11 @@ interface Shown {
   readonly sync: () => void;
   /** Kind and text: what a repeat has in common with it. */
   readonly key: string;
-  /** A repeat came: its time starts over and, when announced, it is read out again. */
-  readonly again: (announce: boolean) => void;
+  /**
+   * A repeat came, asking for this time: the longer of the two starts over, and when
+   * the repeat is announced, so is this one, read out again.
+   */
+  readonly again: (announce: boolean, ms: number) => void;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -190,9 +193,10 @@ export function toast(
   if (!text) return;
   ownRegion();
   const key = `${kind} ${text}`;
+  const ms = options.timeoutMs ?? config.durations[kind];
   const same = config.repeats ? undefined : shown.find((e) => e.key === key);
   if (same) {
-    same.again(options.announce !== false);
+    same.again(options.announce !== false, ms);
     return;
   }
 
@@ -210,7 +214,7 @@ export function toast(
 
   // Counts down only on the page, while neither the pointer nor the focus is on
   // it, and when sequential only as the oldest.
-  const duration = options.timeoutMs ?? config.durations[kind];
+  let duration = ms;
   let holds = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const entry: Shown = {
@@ -228,9 +232,15 @@ export function toast(
         }, duration);
     },
     key,
-    again(announce) {
-      // A text node in its place: a change screen readers read from a live region.
-      if (announce) message.textContent = text;
+    again(announce, time) {
+      // Until closed (0 or less) is the longest: a repeat never shortens a message.
+      if (duration > 0 && (time <= 0 || time > duration)) duration = time;
+      if (announce) {
+        // Shown unannounced before: not hidden any more, or nothing would be read.
+        item.removeAttribute('aria-hidden');
+        // A text node in its place: a change screen readers read from a live region.
+        message.textContent = text;
+      }
       entry.sync();
     },
   };
