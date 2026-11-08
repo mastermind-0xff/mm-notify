@@ -142,6 +142,22 @@ async function pageButton(page, selector) {
   });
 }
 
+test("the page's same text twice: once by default, both with its repeats box", async ({
+  page,
+}) => {
+  await openPaused(page);
+  await pageButton(page, '#twice');
+  await page.clock.runFor(820);
+  await expect(up(page)).toHaveCount(1);
+  await page.clock.runFor(6_000);
+  await expect(page.locator('.mm-notify')).toHaveCount(0);
+  await page.locator('#repeats').check();
+  await page.evaluate(() => window.t.load());
+  await pageButton(page, '#twice');
+  await page.clock.runFor(820);
+  await expect(up(page)).toHaveCount(2);
+});
+
 test('sequential: three of 5 s close at 5, 10 and 15 s', async ({ page }) => {
   await openPaused(page);
   await page.locator('#sequential').check();

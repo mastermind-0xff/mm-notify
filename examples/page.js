@@ -60,6 +60,13 @@ document.querySelector('#twice').addEventListener('click', () => {
   }, 800);
 });
 
+// A site sets this once, before the first message: here to try both.
+document.querySelector('#repeats').addEventListener('change', (event) => {
+  void notify().then(({ configure }) => {
+    configure({ repeats: event.target.checked });
+  });
+});
+
 document.querySelector('#long').addEventListener('click', () => {
   show(
     'Logged in as a.rather.long.address.for.a.phone@subdomain.example-company.com.',

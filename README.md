@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 2.9 KB minified and gzipped, CSS included. No dependencies.
+- 3.0 KB minified and gzipped, CSS included. No dependencies.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -79,9 +79,11 @@ text shows nothing. Options:
 - Default durations: success and neutral 5 s, alert 8 s, error 10 s. Nothing stays
   until closed unless asked: `timeoutMs: 0`, or `0` in `configure({ durations })`.
 - The same kind and text as a message still on screen shows no second message: the one
-  on screen starts its full time over and, unless the repeat has `announce: false`, is
-  read out again. `configure({ repeats: true })` shows every call as its own message, the
-  same text too. `showFlash` shows through `toast`, so the same rule applies to it.
+  on screen starts over, with the longer of its own time and the repeat's (`0`, until
+  closed, is the longest), so a repeat never shortens it. Unless the repeat has
+  `announce: false` it is read out again, also when it was shown with `announce: false`.
+  Its close label stays. `configure({ repeats: true })` shows every call as its own
+  message, the same text too. `showFlash` shows through `toast`, so the same rule applies.
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
 - The text goes through `textContent`. There are no HTML messages.
@@ -207,8 +209,13 @@ The region spans the screen from where the stack starts to the far edge: from
 `--notify-top` down to `--notify-pin-bottom` (top positions), from `--notify-pin-top`
 down to `--notify-bottom` (bottom positions, known by `--notify-flow: column-reverse`).
 That is the room the stack has; it lets the pointer through. A pinned clear all sits one
-message gap (0.625rem) inside it, so set `--notify-pin-bottom` for a fixed footer and
-`--notify-pin-top` for a fixed header.
+message gap (0.625rem) inside it, so set `--notify-pin-bottom` for a fixed footer or
+bottom bar and `--notify-pin-top` for a fixed header.
+
+So the flow also decides the edge a stack hangs from: `column` hangs from `--notify-top`,
+`column-reverse` stands on `--notify-bottom`, which only the bottom positions read. A top
+stack with the newest at its bottom, or a bottom stack with the newest on top, is not
+supported.
 
 ## The CSS
 
@@ -245,8 +252,8 @@ would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 7258     | 2997 | 2640   |
-| `toast` alone             | 6776     | 2788 | 2451   |
+| The package, with its CSS | 7420     | 3049 | 2675   |
+| `toast` alone             | 6938     | 2840 | 2490   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
@@ -271,7 +278,7 @@ npm run examples
 ```
 
 Builds the package and serves `examples/` at http://localhost:5179/examples/ with a
-strict CSP: all kinds, `timeoutMs` and `announce`, sequential timers, clear all,
+strict CSP: all kinds, `timeoutMs` and `announce`, repeats, sequential timers, clear all,
 positions, a dark look, the flash across a reload, a message above an open menu and a
 simulated browser without popover.
 

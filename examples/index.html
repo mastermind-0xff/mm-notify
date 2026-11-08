@@ -78,7 +78,13 @@
           </li>
           <li>
             <button type="button" id="twice">Same text, twice in a row</button>
-            An action can happen twice: both show, each with its own time.
+            By default it shows once: the second starts the first over, and is
+            read out again.
+            <label>
+              <input type="checkbox" id="repeats" />
+              Repeats (<code>configure({ repeats: true })</code>): both show,
+              each with its own time
+            </label>
           </li>
           <li>
             <button type="button" id="long">A long e-mail</button>

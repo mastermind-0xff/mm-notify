@@ -15,7 +15,8 @@ export interface NotifyConfig {
   readonly injectCss?: boolean;
   /**
    * Whether a message whose kind and text equal one still on screen shows as a
-   * new message. Off: the one on screen starts its time over and is read out again.
+   * new message. Off: the one on screen starts over, with the longer of the two
+   * times, and is read out again unless the repeat has `announce: false`.
    */
   readonly repeats?: boolean;
   /**

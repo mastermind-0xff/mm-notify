@@ -7,20 +7,24 @@ From the aesweets.com integration review (2026-11-08):
 - **Default durations:** alert closes after 8 s and error after 10 s, so nothing stays until
   closed by default. `timeoutMs: 0`, or `0` in `configure({ durations })`, still keeps one.
 - **`configure({ repeats })`, default `false`:** the same kind and text as a message still on
-  screen shows no second message; the one on screen starts its full time over and is read out
-  again (unless the repeat has `announce: false`). `true` shows every call, as before.
-  `showFlash` follows the same rule.
+  screen shows no second message; the one on screen starts over with the longer of the two
+  times (`0` the longest, so a repeat never shortens it) and is read out again unless the
+  repeat has `announce: false`, also when it was shown unannounced. `true` shows every call,
+  as before. `showFlash` follows the same rule.
 - **Clear all is pinned when the stack doesn't fit the window:** a full row at the far edge
   (bottom for the top positions, top for the bottom positions), over the messages. The stack
   no longer scrolls. Measured with a `ResizeObserver` and `resize`, so browsers without `dvh`
   (Chrome before 108, Firefox before 101) keep the button on screen too. New tokens
   `--notify-pin-bottom` and `--notify-pin-top` (default `0`) move that edge, for a fixed footer
   or header. **Removed:** `--notify-max-height`, which nothing reads any more. The region now
-  spans from where the stack starts to the far edge (it lets the pointer through).
+  spans from where the stack starts to the far edge (it lets the pointer through), so
+  `--notify-flow` also decides the edge: `column` hangs from `--notify-top`, `column-reverse`
+  stands on `--notify-bottom` (read only there). The other two pairs worked before and don't
+  now. The bottom positions keep their 1.5rem below the newest message, now the list's padding.
 - **Fixed:** under a site's global `box-sizing: border-box` a new message grew to its height
   without the padding, its text cut off, then snapped to its full size and moved the stack.
   A message is `box-sizing: content-box` now, whatever the site sets.
-- `npm run size`: 2997 B, guard raised from 2800 to 3100 B.
+- `npm run size`: 3049 B, guard raised from 2800 to 3100 B.
 
 ## 0.0.0 (unreleased)
 
