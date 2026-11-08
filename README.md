@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 2.6 KB minified and gzipped, CSS included. No dependencies.
+- 2.9 KB minified and gzipped, CSS included. No dependencies.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -76,8 +76,12 @@ text shows nothing. Options:
 | `announce`   | `true`              | `false` hides it from screen readers, when a status line says the same. |
 | `closeLabel` | `Close the message` | The close button's label.                                               |
 
-- Default durations: success and neutral 5 s. Alert and error stay until closed.
-- Every call shows its own message, the same text too: an action can happen twice.
+- Default durations: success and neutral 5 s, alert 8 s, error 10 s. Nothing stays
+  until closed unless asked: `timeoutMs: 0`, or `0` in `configure({ durations })`.
+- The same kind and text as a message still on screen shows no second message: the one
+  on screen starts its full time over and, unless the repeat has `announce: false`, is
+  read out again. `configure({ repeats: true })` shows every call as its own message, the
+  same text too. `showFlash` shows through `toast`, so the same rule applies to it.
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
 - The text goes through `textContent`. There are no HTML messages.
@@ -88,8 +92,13 @@ the rest of the stack moves out of its way smoothly.
 
 From three messages a **Clear all** button fades in, which closes them all, those that
 stay until closed too. It sits at the far end of the stack: below the messages at the top,
-above them at the bottom. When the messages don't fit the window they scroll, under the
-wheel or a finger on a message, and the newest and the button stay on screen.
+above them at the bottom. The stack never scrolls. When it doesn't fit the window, the
+button is pinned to the far edge of the screen as a full row over the messages: the bottom
+edge for the top positions, the top edge for the bottom positions, one message gap from it
+(`--notify-pin-bottom` and `--notify-pin-top` move that edge, see "Position"). The messages
+past the edge are out of sight until others close. When the stack fits again, the button
+goes back after the messages. The window's size is measured (a `ResizeObserver` and
+`resize`), so it needs no `dvh`.
 
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
@@ -125,6 +134,7 @@ export { flash, showFlash, toast } from '@mmutils/notify';
 | `clearAllLabel` | `Clear all`         | The clear-all button's text.                                      |
 | `clearAllFrom`  | `3`                 | How many messages bring up that button. `0` or `Infinity`: never. |
 | `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.       |
+| `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.    |
 | `sequential`    | `false`             | One timer at a time, see below.                                   |
 | `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".        |
 
@@ -146,7 +156,8 @@ cascade order.
 | `--notify-shift`: horizontal shift                                   | `-50%`                             |
 | `--notify-slide`: where a message slides in from                     | `-1.25rem`                         |
 | `--notify-width`                                                     | `min(32rem, calc(100vw - 2rem))`   |
-| `--notify-max-height`                                                | `calc(100dvh - 2rem)`              |
+| `--notify-pin-bottom`: top positions, where a pinned clear all stops | `0`                                |
+| `--notify-pin-top`: bottom positions, the same at the top            | `0`                                |
 | `--notify-color`: the text                                           | `#111`                             |
 | `--notify-success`, `--notify-success-glow`                          | `#00e77f`, `rgb(0 213 127 / 0.3)`  |
 | `--notify-error`, `--notify-error-glow`                              | `#ef403c`, `rgb(239 64 60 / 0.3)`  |
@@ -181,12 +192,23 @@ Top center is the default. A corner is a CSS-only change:
   --notify-flow: column-reverse;
 }
 
-/* under a sticky header: the height keeps the messages and the button on screen */
+/* under a fixed header: the stack starts below it */
 :root {
   --notify-top: 4.25rem;
-  --notify-max-height: calc(100dvh - 5.25rem);
+}
+
+/* bottom left under a fixed header: a pinned clear all stays below the header */
+:root {
+  --notify-pin-top: 4.25rem;
 }
 ```
+
+The region spans the screen from where the stack starts to the far edge: from
+`--notify-top` down to `--notify-pin-bottom` (top positions), from `--notify-pin-top`
+down to `--notify-bottom` (bottom positions, known by `--notify-flow: column-reverse`).
+That is the room the stack has; it lets the pointer through. A pinned clear all sits one
+message gap (0.625rem) inside it, so set `--notify-pin-bottom` for a fixed footer and
+`--notify-pin-top` for a fixed header.
 
 ## The CSS
 
@@ -218,13 +240,13 @@ popover or dialog. The CSS has no nesting and uses `transform` for the same brow
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (2800 B for the package, 200 B for the eager check) or when the eager code
+budgets (3100 B for the package, 200 B for the eager check) or when the eager code
 would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 6682     | 2755 | 2412   |
-| `toast` alone             | 6200     | 2544 | 2212   |
+| The package, with its CSS | 7258     | 2997 | 2640   |
+| `toast` alone             | 6776     | 2788 | 2451   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
