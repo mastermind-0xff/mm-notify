@@ -949,6 +949,8 @@ describe('toast: clear all pinned when the stack does not fit', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    // Here, not in the tests: a failed one must not leave ResizeObserver stubbed.
+    vi.unstubAllGlobals();
     room = 500;
     stack = 100;
   });
@@ -1006,7 +1008,6 @@ describe('toast: clear all pinned when the stack does not fit', () => {
     expect(observed).toHaveLength(2);
     expect(observed[1]).toBe(list());
     expect(observed[0]).not.toBe(list());
-    vi.unstubAllGlobals();
   });
 
   it('does without a ResizeObserver', async () => {
@@ -1017,7 +1018,6 @@ describe('toast: clear all pinned when the stack does not fit', () => {
       nextFrame();
     }).not.toThrow();
     expect(texts()).toEqual(['One']);
-    vi.unstubAllGlobals();
   });
 });
 
