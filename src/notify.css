@@ -59,6 +59,11 @@
   padding-bottom: 1.5rem;
 }
 
+/* Pinned, clear all covers the messages, also while it comes in at -1 (see below). */
+.mm-notify-pinned .mm-notify-list {
+  z-index: -2;
+}
+
 /* Below the list the gap is the last message's own margin, above it this one's. The
    z-index: at rest above the messages, which it covers when pinned. While it comes
    and goes it moves over the next message, so -1 until it has stopped: see below. */

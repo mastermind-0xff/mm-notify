@@ -172,6 +172,17 @@ describe('notify.css', () => {
     );
   });
 
+  it('puts the messages under a pinned clear all, also while it comes in at -1', () => {
+    const under =
+      /\.mm-notify-pinned \.mm-notify-list \{\s*z-index: (-?\d+);/.exec(
+        code
+      )?.[1];
+    const coming = /z-index: (-?\d+);/.exec(
+      rule('.mm-notify-clear.mm-notify-out')
+    )?.[1];
+    expect(Number(under)).toBeLessThan(Number(coming));
+  });
+
   it('measures a message as content-box, whatever the site sets for all', () => {
     expect(code).toMatch(/\.mm-notify \{[^}]*box-sizing: content-box;/);
   });

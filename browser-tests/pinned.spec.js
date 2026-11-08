@@ -142,6 +142,36 @@ for (const { name, attribute, sign } of POSITIONS) {
         await settled(page, false);
       });
 
+      test('covers the messages while it comes in, not only once it has stopped', async ({
+        page,
+      }) => {
+        await page.evaluate(() => window.t.configure({ clearAllFrom: 9 }));
+        await add(page, 1, 8);
+        await settled(page, true);
+        // Every frame of its 0.3 s fade, three points along the row: never a message.
+        const covered = await page.evaluate(async () => {
+          await window.t.toast('Message 9.', 'neutral', { timeoutMs: 0 });
+          const button = window.t.clearAll();
+          const seen = [];
+          const start = performance.now();
+          while (performance.now() - start < 400) {
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            if (getComputedStyle(button).visibility !== 'visible') continue;
+            const box = button.getBoundingClientRect();
+            for (const x of [0.1, 0.5, 0.9]) {
+              const hit = document.elementFromPoint(
+                box.left + (box.right - box.left) * x,
+                (box.top + box.bottom) / 2
+              );
+              if (!button.contains(hit))
+                seen.push(`${Math.round(performance.now() - start)} ms`);
+            }
+          }
+          return seen;
+        });
+        expect(covered).toEqual([]);
+      });
+
       test('lets go when messages close on their own', async ({ page }) => {
         await add(page, 1, 4);
         await page.evaluate(async () => {
