@@ -95,8 +95,11 @@ for (const { name, attribute, sign } of POSITIONS) {
         if (sign < 0) {
           close(seen.newest.top, 68, 0.5, 'under the header');
           close(seen.button.top, seen.oldest.bottom + 10, 0.5, 'after them');
-        } else
+        } else {
+          // 1.5rem of room for the glow, and the message's own margin (as on main).
+          close(seen.newest.bottom, seen.innerHeight - 34, 0.5, 'room below');
           close(seen.button.bottom, seen.oldest.top - 10, 0.5, 'above them');
+        }
         expect(seen.covers).toBe(false);
       });
 
@@ -122,9 +125,9 @@ for (const { name, attribute, sign } of POSITIONS) {
         } else {
           close(
             seen.newest.bottom,
-            seen.innerHeight - 10,
+            seen.innerHeight - 34,
             0.5,
-            'newest at the bottom'
+            'newest at the bottom, with room below'
           );
           close(seen.button.top, 68 + 10, 0.5, 'below the header');
         }

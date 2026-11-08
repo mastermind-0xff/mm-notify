@@ -166,6 +166,12 @@ describe('notify.css', () => {
     );
   });
 
+  it('keeps room under a bottom stack for the glow of its newest message', () => {
+    expect(code).toMatch(
+      /\.mm-notify-up \.mm-notify-list \{\s*padding-bottom: 1\.5rem;\s*\}/
+    );
+  });
+
   it('measures a message as content-box, whatever the site sets for all', () => {
     expect(code).toMatch(/\.mm-notify \{[^}]*box-sizing: content-box;/);
   });
