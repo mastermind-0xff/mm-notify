@@ -32,17 +32,44 @@ for (const kind of ['success', 'neutral']) {
   });
 }
 
-for (const kind of ['alert', 'error']) {
-  test(`${kind} stays until closed`, async ({ page }) => {
+// Nothing stays until closed by default (aesweets D34): alert 8 s, error 10 s.
+for (const [kind, ms] of [
+  ['alert', 8_000],
+  ['error', 10_000],
+]) {
+  test(`${kind} closes after ${ms / 1000} s`, async ({ page }) => {
     await openPaused(page);
-    await showKind(page, 'Stays.', kind);
-    await page.clock.runFor(120_000);
+    await showKind(page, 'Timed.', kind);
+    await page.clock.runFor(ms - 20);
     await expect(up(page)).toHaveCount(1);
-    await page.locator('.mm-notify-close').click();
+    await page.clock.runFor(40);
+    await expect(up(page)).toHaveCount(0);
     await page.clock.runFor(360);
     await expect(page.locator('.mm-notify')).toHaveCount(0);
   });
 }
+
+test('the same kind and text again starts the one on screen over, once', async ({
+  page,
+}) => {
+  await openPaused(page);
+  await showKind(page, 'Saved.', 'success');
+  await page.clock.runFor(4_000);
+  await showKind(page, 'Saved.', 'success');
+  await expect(page.locator('.mm-notify')).toHaveCount(1);
+  await page.clock.runFor(4_960);
+  await expect(up(page)).toHaveText(['Saved.']);
+  await page.clock.runFor(60);
+  await expect(up(page)).toHaveCount(0);
+});
+
+test('repeats: true shows the same text again', async ({ page }) => {
+  await openPaused(page);
+  await page.evaluate(() => window.t.configure({ repeats: true }));
+  await showKind(page, 'Saved.', 'success');
+  await showKind(page, 'Saved.', 'success');
+  await expect(up(page)).toHaveText(['Saved.', 'Saved.']);
+});
 
 test('timeoutMs sets the time, 0 keeps it', async ({ page }) => {
   await openPaused(page);

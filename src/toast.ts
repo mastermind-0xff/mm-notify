@@ -62,6 +62,10 @@ interface Shown {
   readonly item: HTMLElement;
   /** Starts or stops its timer, for what holds it now. */
   readonly sync: () => void;
+  /** Kind and text: what a repeat has in common with it. */
+  readonly key: string;
+  /** A repeat came: its time starts over and, when announced, it is read out again. */
+  readonly again: (announce: boolean) => void;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -141,7 +145,10 @@ function close(entry: Shown): void {
   if (config.sequential && !at) shown[0]?.sync();
 }
 
-/** Shows a notification. Every call shows its own, the same text too. */
+/**
+ * Shows a notification. The same kind and text as one still on screen shows
+ * again only with `configure({ repeats: true })`; otherwise that one starts over.
+ */
 export function toast(
   text: string,
   kind: ToastKind = 'neutral',
@@ -149,6 +156,12 @@ export function toast(
 ): void {
   if (!text) return;
   ownRegion();
+  const key = `${kind} ${text}`;
+  const same = config.repeats ? undefined : shown.find((e) => e.key === key);
+  if (same) {
+    same.again(options.announce !== false);
+    return;
+  }
 
   const item = document.createElement('div');
   item.className = `mm-notify mm-notify-${kind}`;
@@ -180,6 +193,12 @@ export function toast(
         timer = setTimeout(() => {
           close(entry);
         }, duration);
+    },
+    key,
+    again(announce) {
+      // A text node in its place: a change screen readers read from a live region.
+      if (announce) message.textContent = text;
+      entry.sync();
     },
   };
   const hold = (event: string, by: number): void => {

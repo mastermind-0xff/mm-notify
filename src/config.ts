@@ -14,6 +14,11 @@ export interface NotifyConfig {
   /** Off when the page loads `@mmutils/notify/notify.css` itself. */
   readonly injectCss?: boolean;
   /**
+   * Whether a message whose kind and text equal one still on screen shows as a
+   * new message. Off: the one on screen starts its time over and is read out again.
+   */
+  readonly repeats?: boolean;
+  /**
    * One timer at a time, oldest message first: the next starts when the one
    * before has closed, so a message that stays until closed holds those behind it.
    */
@@ -28,10 +33,11 @@ export const config = {
   durations: {
     success: 5000,
     neutral: 5000,
-    alert: 0,
-    error: 0,
+    alert: 8000,
+    error: 10_000,
   } as Record<ToastKind, number>,
   injectCss: true,
+  repeats: false,
   sequential: false,
 };
 

@@ -124,14 +124,17 @@ describe('toast: how long it stays', () => {
     expect(showing()).toHaveLength(0);
   });
 
-  it.each(['alert', 'error'] as const)(
-    'keeps %s until closed, by default',
-    (kind) => {
-      toast('Stay', kind);
+  it.each([
+    ['alert', 8000],
+    ['error', 10_000],
+  ] as const)(
+    'closes %s after %d ms: nothing stays by default',
+    (kind, duration) => {
+      toast('Bye', kind);
       nextFrame();
-      vi.advanceTimersByTime(3_600_000);
+      vi.advanceTimersByTime(duration - 1);
       expect(showing()).toHaveLength(1);
-      items()[0]!.querySelector('button')!.click();
+      vi.advanceTimersByTime(1);
       expect(showing()).toHaveLength(0);
     }
   );
@@ -319,7 +322,11 @@ describe('toast: the stack', () => {
   });
 });
 
-describe('toast: the same text twice', () => {
+describe('toast: the same text twice, with repeats', () => {
+  beforeEach(() => {
+    configure({ repeats: true });
+  });
+
   it('shows both: an action can happen twice', () => {
     toast('Saved', 'success');
     nextFrame();
@@ -357,6 +364,99 @@ describe('toast: the same text twice', () => {
     const second = items()[1]!;
     items()[0]!.querySelector('button')!.click();
     expect(showing()).toEqual([second]);
+  });
+});
+
+describe('toast: the same text twice, by default', () => {
+  const textNode = (): Node => items()[0]!.querySelector('p')!.firstChild!;
+
+  it('shows it once', () => {
+    toast('Saving failed.', 'error');
+    nextFrame();
+    toast('Saving failed.', 'error');
+    nextFrame();
+    expect(texts()).toEqual(['Saving failed.']);
+  });
+
+  it('shows it once when both come in one frame too', () => {
+    toast('Saved', 'success');
+    toast('Saved', 'success');
+    nextFrame();
+    expect(texts()).toEqual(['Saved']);
+    expect(list().childElementCount).toBe(1);
+  });
+
+  it('shows the same text of another kind', () => {
+    toast('Done', 'success');
+    toast('Done', 'neutral');
+    nextFrame();
+    expect(texts()).toEqual(['Done', 'Done']);
+  });
+
+  it('starts the time of the one on screen over, as long as a new one would stay', () => {
+    toast('Saved', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4000);
+    toast('Saved', 'success');
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Saved']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('keeps one that stays until closed as it is', () => {
+    toast('Stay', 'alert', { timeoutMs: 0 });
+    nextFrame();
+    toast('Stay', 'alert');
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Stay']);
+  });
+
+  it('leaves a held one held', () => {
+    toast('Saved', 'success');
+    nextFrame();
+    fire(items()[0]!, 'pointerenter');
+    toast('Saved', 'success');
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['Saved']);
+  });
+
+  it('reads the one on screen out again, unless the repeat is unannounced', () => {
+    toast('Saved', 'success');
+    nextFrame();
+    const before = textNode();
+    toast('Saved', 'success', { announce: false });
+    expect(textNode()).toBe(before);
+    toast('Saved', 'success');
+    expect(textNode()).not.toBe(before);
+    expect(texts()).toEqual(['Saved']);
+  });
+
+  it('shows it again once the first is closing', () => {
+    toast('Saved', 'success');
+    nextFrame();
+    closeButton('Saved').click();
+    toast('Saved', 'success');
+    nextFrame();
+    expect(texts()).toEqual(['Saved']);
+    expect(items()).toHaveLength(2);
+  });
+
+  it('counts for clear all only once', () => {
+    toast('One');
+    toast('Two');
+    toast('Two');
+    nextFrame();
+    expect(clearAllShown()).toBe(false);
+  });
+
+  it('applies to showFlash too, which shows through toast', () => {
+    toast('Logged out.', 'success');
+    nextFrame();
+    flash('Logged out.');
+    showFlash();
+    nextFrame();
+    expect(texts()).toEqual(['Logged out.']);
   });
 });
 
@@ -407,7 +507,7 @@ describe('toast: one after the other (sequential)', () => {
 
   it('waits for a permanent message before the timers behind it', () => {
     toast('One', 'success');
-    toast('Permanent', 'error');
+    toast('Permanent', 'error', { timeoutMs: 0 });
     toast('Three', 'success');
     nextFrame();
     vi.advanceTimersByTime(5000);
@@ -423,7 +523,7 @@ describe('toast: one after the other (sequential)', () => {
   });
 
   it('holds a message that comes later behind a permanent one', () => {
-    toast('Permanent', 'alert');
+    toast('Permanent', 'alert', { timeoutMs: 0 });
     nextFrame();
     vi.advanceTimersByTime(60_000);
     toast('Later', 'success');
@@ -482,7 +582,7 @@ describe('toast: one after the other (sequential)', () => {
   });
 
   it('does not start a waiting timer when the pointer leaves it', () => {
-    toast('One', 'alert');
+    toast('One', 'alert', { timeoutMs: 0 });
     toast('Two', 'success');
     nextFrame();
     fire(items()[1]!, 'pointerenter', 'pointerleave');
