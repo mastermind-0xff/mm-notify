@@ -145,6 +145,10 @@ describe('notify.css', () => {
     expect(code).toMatch(/\.mm-notify \{[^}]*flex: none;/);
   });
 
+  it('measures a message as content-box, whatever the site sets for all', () => {
+    expect(code).toMatch(/\.mm-notify \{[^}]*box-sizing: content-box;/);
+  });
+
   it('turns the whole stack around with one token', () => {
     const flow = 'flex-direction: var(--notify-flow, column);';
     expect(code).toContain(`.mm-notify-region {`);

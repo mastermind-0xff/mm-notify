@@ -79,6 +79,7 @@
 }
 
 .mm-notify {
+  box-sizing: content-box; /* the height it grows to is the content's, whatever the site's */
   display: flex;
   flex: none;
   align-items: flex-start;
