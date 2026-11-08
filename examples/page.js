@@ -80,7 +80,7 @@ document.querySelector('#many').addEventListener('click', () => {
 
 document.querySelector('#flood').addEventListener('click', () => {
   for (let number = 1; number <= 30; number += 1)
-    show(`Permanent message ${number}.`, 'alert');
+    show(`Permanent message ${number}.`, 'alert', { timeoutMs: 0 });
 });
 
 // A site sets this once, before the first message. Here it changes while messages
@@ -100,7 +100,7 @@ document.querySelector('#three').addEventListener('click', () => {
 
 document.querySelector('#held').addEventListener('click', () => {
   show('First, 5 s.', 'success');
-  show('Second, stays until closed.', 'error');
+  show('Second, stays until closed.', 'error', { timeoutMs: 0 });
   show(
     'Third, 5 s: when sequential, its time starts after the second.',
     'neutral'

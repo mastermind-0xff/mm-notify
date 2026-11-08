@@ -142,6 +142,17 @@ test.describe('a real window of 390 px', () => {
       await open(page, { position: attribute });
       await page.locator('#flood').dispatchEvent('click');
       await expect(page.locator('.mm-notify')).toHaveCount(30);
+      // Pinned from the frame after the stack has outgrown the window.
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            window.t.settle();
+            return document
+              .querySelector('.mm-notify-region')
+              .classList.contains('mm-notify-pinned');
+          })
+        )
+        .toBe(true);
       const seen = await page.evaluate(() => {
         const { t } = window;
         t.settle();
