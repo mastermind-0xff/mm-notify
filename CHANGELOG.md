@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
+
+- **The stack scrolls again, with faded edges** (replaces the pinned Clear all below): the
+  stack, Clear all included, is at most `--notify-max-height` tall (`66.67vh`, `66.67dvh`
+  where the browser has `dvh`, so Chrome before 108 and Firefox 100 get a limit too).
+  Taller, the messages scroll inside it and Clear all stays at its end. An edge with
+  messages beyond it fades out over `--notify-fade` (`2rem`), smoothly where `@property`
+  exists; an edge with nothing beyond never fades. No scrollbar; wheel and touch scroll the
+  list (also over the gaps while it scrolls), `overscroll-behavior: contain`. Tab brings a
+  cross out of sight fully into view, clear of the fades and of Clear all. A new message
+  scrolls the list back to its start, unless the keyboard focus is in the list.
+  **Removed:** `--notify-pin-bottom`, `--notify-pin-top`, the classes `.mm-notify-pinned`
+  and `.mm-notify-up`. **Back:** `--notify-max-height` (its default is new: 2/3 of the
+  window). The region no longer spans to the far edge, so either `--notify-flow` works from
+  either edge again.
+- **A message has no 40vh limit of its own:** a long one is shown whole and the list
+  scrolls, instead of cutting it.
+- **Above popovers opened later:** a new message (or a repeat) after a popover opened over
+  the messages raises the region again, without replaying any animation, keeping the focus
+  and the scroll. Sites that hid and showed the region themselves can drop that.
+- **`@mmutils/notify/css`:** exports `css`, the minified CSS string the package injects,
+  for a site's own checks or build. Its own entry, so it adds nothing to the others.
+- `npm run size`: see the README; the guard of 3100 B is not raised here.
+
 From the aesweets.com integration review (2026-11-08):
 
 - **Default durations:** alert closes after 8 s and error after 10 s, so nothing stays until
@@ -11,7 +35,7 @@ From the aesweets.com integration review (2026-11-08):
   times (`0` the longest, so a repeat never shortens it) and is read out again unless the
   repeat has `announce: false`, also when it was shown unannounced. `true` shows every call,
   as before. `showFlash` follows the same rule.
-- **Clear all is pinned when the stack doesn't fit the window:** a full row at the far edge
+- **Clear all is pinned when the stack doesn't fit the window** (replaced the next day by the scrolling stack above): a full row at the far edge
   (bottom for the top positions, top for the bottom positions), over the messages. The stack
   no longer scrolls. Measured with a `ResizeObserver` and `resize`, so browsers without `dvh`
   (Chrome before 108, Firefox before 101) keep the button on screen too. New tokens

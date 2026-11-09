@@ -94,13 +94,30 @@ the rest of the stack moves out of its way smoothly.
 
 From three messages a **Clear all** button fades in, which closes them all, those that
 stay until closed too. It sits at the far end of the stack: below the messages at the top,
-above them at the bottom. The stack never scrolls. When it doesn't fit the window, the
-button is pinned to the far edge of the screen as a full row over the messages: the bottom
-edge for the top positions, the top edge for the bottom positions, one message gap from it
-(`--notify-pin-bottom` and `--notify-pin-top` move that edge, see "Position"). The messages
-past the edge are out of sight until others close. When the stack fits again, the button
-goes back after the messages. The window's size is measured (a `ResizeObserver` and
-`resize`), so it needs no `dvh`.
+above them at the bottom.
+
+**A tall stack scrolls.** The stack, Clear all included, takes at most 2/3 of the window
+(`--notify-max-height`: `66.67vh`, `66.67dvh` where the browser has `dvh`). Taller, the
+messages scroll inside it and Clear all stays at its end, on screen and never over a
+message. An edge with messages beyond it fades out (a mask over `--notify-fade`, 2rem), and
+only then: at the start of the list only the far edge fades, and an edge with nothing
+beyond it never hides anything. Where the browser has `@property` (Chrome 85, Safari 16.4,
+Firefox 128) the fade comes and goes in 0.3 s; elsewhere it switches. There is no
+scrollbar (the fades would cut it, and it would narrow the messages): the wheel and touch
+scroll the list, gaps between messages included, and `overscroll-behavior: contain` keeps
+the page still at its end (Safari 16 and later). Tab brings a close cross that is out of
+sight fully into view, clear of the fades and of Clear all (`scroll-padding`).
+
+A new message comes in at the start of the list, so the list scrolls back there to show
+it, unless the keyboard focus is in the list: that focus stays where it is, in sight, and
+the live region reads the new message out.
+
+**Above popovers opened later.** The top layer stacks by opening order, so a popover (a
+menu) opened while messages show would sit above them, and above later messages too. A
+new message (or a repeat) after such a popover opens the region again, which puts it on
+top. Nothing on screen changes: no animation runs again, the scroll stays, and the focus
+stays where it was (given back with `preventScroll` if a browser moves it). Browsers
+without popover have no top layer: nothing to do there. Dialogs are left alone.
 
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
@@ -158,8 +175,8 @@ cascade order.
 | `--notify-shift`: horizontal shift                                   | `-50%`                             |
 | `--notify-slide`: where a message slides in from                     | `-1.25rem`                         |
 | `--notify-width`                                                     | `min(32rem, calc(100vw - 2rem))`   |
-| `--notify-pin-bottom`: top positions, where a pinned clear all stops | `0`                                |
-| `--notify-pin-top`: bottom positions, the same at the top            | `0`                                |
+| `--notify-max-height`: the stack, Clear all included                 | `66.67vh` (`66.67dvh` with `dvh`)  |
+| `--notify-fade`: how far an edge with more beyond it fades           | `2rem`                             |
 | `--notify-color`: the text                                           | `#111`                             |
 | `--notify-success`, `--notify-success-glow`                          | `#00e77f`, `rgb(0 213 127 / 0.3)`  |
 | `--notify-error`, `--notify-error-glow`                              | `#ef403c`, `rgb(239 64 60 / 0.3)`  |
@@ -199,23 +216,17 @@ Top center is the default. A corner is a CSS-only change:
   --notify-top: 4.25rem;
 }
 
-/* bottom left under a fixed header: a pinned clear all stays below the header */
+/* a lower limit, for instance with a fixed bar at the bottom of the screen */
 :root {
-  --notify-pin-top: 4.25rem;
+  --notify-max-height: 60vh;
 }
 ```
 
-The region spans the screen from where the stack starts to the far edge: from
-`--notify-top` down to `--notify-pin-bottom` (top positions), from `--notify-pin-top`
-down to `--notify-bottom` (bottom positions, known by `--notify-flow: column-reverse`).
-That is the room the stack has; it lets the pointer through. A pinned clear all sits one
-message gap (0.625rem) inside it, so set `--notify-pin-bottom` for a fixed footer or
-bottom bar and `--notify-pin-top` for a fixed header.
-
-So the flow also decides the edge a stack hangs from: `column` hangs from `--notify-top`,
-`column-reverse` stands on `--notify-bottom`, which only the bottom positions read. A top
-stack with the newest at its bottom, or a bottom stack with the newest on top, is not
-supported.
+The stack starts at `--notify-top` (or stands on `--notify-bottom`) and is as tall as
+its messages, up to `--notify-max-height`. Set a value in `vh` there, or `dvh` only
+inside `@supports (height: 1dvh)`: a `dvh` value is ignored where the unit is unknown,
+and the stack would have no limit. `--notify-flow` turns the order around; either flow
+works from either edge.
 
 ## The CSS
 
@@ -239,10 +250,22 @@ The string stays in the JS in that case, so this is about control, not bytes.
 ## Browsers
 
 With popover (Chrome 114, Firefox 125, Safari 17) a message sits in the top layer,
-above open menus and dialogs. The top layer stacks by opening order, so a menu opened
-after a message sits above it. Without popover the region is a plain fixed element
+above open menus and dialogs. The top layer stacks by opening order: a menu opened after
+the messages sits above them until the next message, which raises the region again. Without popover the region is a plain fixed element
 with a high `z-index`: it still sits above a sticky header but can end up under a
 popover or dialog. The CSS has no nesting and uses `transform` for the same browsers.
+
+## The CSS as a string
+
+`@mmutils/notify/css` exports `css`, the minified string the package injects, for a site
+that checks it (a test of its colors) or puts it into its own build:
+
+```js
+import { css } from '@mmutils/notify/css';
+```
+
+Its own entry: the main entry and `has-flash` don't carry it, and importing it alone
+loads no toast code.
 
 ## Size
 
@@ -252,12 +275,15 @@ would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 7420     | 3049 | 2675   |
-| `toast` alone             | 6938     | 2840 | 2490   |
+| The package, with its CSS | 8769     | 3413 | 3022   |
+| `toast` alone             | 8287     | 3203 | 2820   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
 The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
+**Over the guard on this branch:** the scrolling stack with its fades, the raise above later
+popovers and the `dvh` fallback took the package from 3049 B to 3413 B, so `npm run size` fails
+at its 3100 B guard until the author decides on it.
 
 ## As a `file:` dependency
 
