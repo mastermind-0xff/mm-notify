@@ -119,6 +119,8 @@ const DEFAULTS = {
   edge: Number.parseFloat(TOKENS['--notify-top']),
   side: 1,
   width: Number(/min\(([\d.]+)rem/.exec(TOKENS['--notify-width'])[1]),
+  height: Number.parseFloat(TOKENS['--notify-max-height']),
+  fade: Number.parseFloat(TOKENS['--notify-fade']),
   text: fullHex(TOKENS['--notify-color']),
   glowFollows: true,
   radius: Number.parseFloat(TOKENS['--notify-radius']),
@@ -180,9 +182,9 @@ function tokensOf(v) {
     '--notify-slide': bottom ? '1.25rem' : '-1.25rem',
     '--notify-flow': bottom ? 'column-reverse' : 'column',
     '--notify-width': `min(${v.width}rem, calc(100vw - 2rem))`,
-    // Where a pinned clear all stops short of the far edge (a fixed header or footer).
-    '--notify-pin-top': '0',
-    '--notify-pin-bottom': '0',
+    // vh, not dvh: a dvh value would leave no limit where the browser lacks the unit.
+    '--notify-max-height': `${v.height}vh`,
+    '--notify-fade': length(v.fade, 'rem'),
     '--notify-color': v.text,
     '--notify-radius': length(v.radius, 'px'),
     '--notify-font-size': `${v.fontSize}rem`,
@@ -433,12 +435,12 @@ const closeAll = () => {
     button.click();
 };
 
-const showPinned = () => {
+const showKinds = () => {
   for (const kind of KINDS) toast(SAMPLES[kind], kind, { timeoutMs: 0 });
 };
 
 const PREVIEWS = {
-  'All kinds, pinned': showPinned,
+  'All kinds': showKinds,
   'With their timers'() {
     for (const kind of KINDS) toast(SAMPLES[kind], kind);
   },
@@ -453,7 +455,7 @@ const PREVIEWS = {
       { timeoutMs: 0 }
     );
   },
-  'Twelve, pinned'() {
+  'Twelve, scrolling'() {
     for (let number = 1; number <= 12; number += 1)
       toast(`Message ${number}.`, KINDS[number % 4], { timeoutMs: 0 });
   },
@@ -605,7 +607,9 @@ $('#controls').append(
     choice('place', 'Where', PLACES),
     slider('edge', 'From top or bottom', 0, 12, 0.25, 'rem'),
     slider('side', 'From the side', 0, 8, 0.25, 'rem'),
-    slider('width', 'Width', 16, 48, 1, 'rem')
+    slider('width', 'Width', 16, 48, 1, 'rem'),
+    slider('height', 'At most, of the window', 20, 100, 1, '%'),
+    slider('fade', 'Fade at an edge', 0, 4, 0.25, 'rem')
   ),
   group(
     'Colors',
@@ -713,4 +717,4 @@ $('#reset').addEventListener('click', () => {
 });
 
 refresh();
-showPinned();
+showKinds();

@@ -170,6 +170,115 @@ test.describe('top layer', () => {
     });
   });
 
+  // aesweets D47 (a): the top layer stacks by opening order. The package opens its
+  // region again for a new message, which replays nothing: it is display: flex closed.
+  test('a new message comes above a popover menu opened after the messages, replaying none', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(() =>
+      window.t.toast('Earlier.', 'alert', { timeoutMs: 0 })
+    );
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    await page.evaluate(() => {
+      window.t.settle();
+    });
+    await page.locator('[popovertarget="menu"]').click();
+    await expect(page.locator('#menu')).toBeVisible();
+    const underBefore = await page.evaluate(() => {
+      const a = window.t.item('Earlier.').getBoundingClientRect();
+      const b = document.querySelector('#menu').getBoundingClientRect();
+      const x = (Math.max(a.left, b.left) + Math.min(a.right, b.right)) / 2;
+      const y = (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2;
+      return window.t.hits(document.querySelector('#menu'), x, y);
+    });
+    expect(underBefore).toBe(true);
+
+    await page.locator('#menu [data-kind="success"]').click();
+    await expect(page.locator('.mm-notify')).toHaveCount(2);
+    // At once, before anything settles: the earlier message runs no animation again.
+    expect(
+      await page.evaluate(
+        () => window.t.item('Earlier.').getAnimations().length
+      )
+    ).toBe(0);
+    const seen = await page.evaluate(() => {
+      window.t.settle();
+      const menu = document.querySelector('#menu');
+      const b = menu.getBoundingClientRect();
+      const over = (text) => {
+        const item = window.t.item(text);
+        const a = item.getBoundingClientRect();
+        const x = (Math.max(a.left, b.left) + Math.min(a.right, b.right)) / 2;
+        const y = (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2;
+        return (
+          a.top < b.bottom && b.top < a.bottom && window.t.hits(item, x, y)
+        );
+      };
+      return {
+        newOnTop: over('Your changes are saved.'),
+        earlierOnTop: over('Earlier.'),
+        menuOpen: menu.matches(':popover-open'),
+        regionOpen: window.t.regionOpen(),
+      };
+    });
+    expect(seen).toEqual({
+      newOnTop: true,
+      earlierOnTop: true,
+      menuOpen: true,
+      regionOpen: true,
+    });
+  });
+
+  test('raised for a new message, the region keeps the focus and the scroll', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 800, height: 420 });
+    await open(page);
+    await page.evaluate(async () => {
+      for (let n = 1; n <= 12; n += 1)
+        await window.t.toast(`Message ${n}.`, 'neutral', { timeoutMs: 0 });
+    });
+    await expect(page.locator('.mm-notify')).toHaveCount(12);
+    await page.evaluate(() => {
+      window.t.settle();
+    });
+    const cross = page
+      .locator('.mm-notify', { hasText: 'Message 6.' })
+      .locator('.mm-notify-close');
+    await cross.focus();
+    const menuOnTop = () =>
+      page.evaluate(() => {
+        const b = document.querySelector('#menu').getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          (b.left + b.right) / 2,
+          (b.top + b.bottom) / 2
+        );
+        return Boolean(hit?.closest('#menu'));
+      });
+    await page.evaluate(() => {
+      document.querySelector('#menu').showPopover();
+    });
+    expect(await menuOnTop()).toBe(true);
+    const before = await page.evaluate(
+      () => document.querySelector('.mm-notify-list').scrollTop
+    );
+    expect(before).toBeGreaterThan(0);
+
+    await page.evaluate(() =>
+      window.t.toast('The newest.', 'success', { timeoutMs: 0 })
+    );
+    await expect(page.locator('.mm-notify')).toHaveCount(13);
+    await expect(cross).toBeFocused();
+    expect(await menuOnTop()).toBe(false);
+    // Kept, and moved on by the new message's growth, where scroll anchoring has it.
+    expect(
+      await page.evaluate(
+        () => document.querySelector('.mm-notify-list').scrollTop
+      )
+    ).toBeGreaterThanOrEqual(before);
+  });
+
   test('the popover opens with the first message and closes after the last', async ({
     page,
   }) => {

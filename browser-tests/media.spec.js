@@ -136,31 +136,25 @@ test.describe('a real window of 390 px', () => {
   }
 
   for (const { name, attribute } of POSITIONS) {
-    test(`${name}: thirty messages fit the window, with the button on screen`, async ({
+    test(`${name}: thirty messages scroll in 2/3 of the window, with the button on screen`, async ({
       page,
     }) => {
       await open(page, { position: attribute });
       await page.locator('#flood').dispatchEvent('click');
       await expect(page.locator('.mm-notify')).toHaveCount(30);
-      // Pinned from the frame after the stack has outgrown the window.
-      await expect
-        .poll(() =>
-          page.evaluate(() => {
-            window.t.settle();
-            return document
-              .querySelector('.mm-notify-region')
-              .classList.contains('mm-notify-pinned');
-          })
-        )
-        .toBe(true);
       const seen = await page.evaluate(() => {
         const { t } = window;
         t.settle();
         const box = t.clearAll().getBoundingClientRect();
+        const list = document.querySelector('.mm-notify-list');
         return {
           top: box.top,
           bottom: box.bottom,
           height: innerHeight,
+          region: document
+            .querySelector('.mm-notify-region')
+            .getBoundingClientRect().height,
+          scrolls: list.scrollHeight > list.clientHeight,
           left: document.querySelector('.mm-notify').getBoundingClientRect()
             .left,
         };
@@ -168,6 +162,8 @@ test.describe('a real window of 390 px', () => {
       expect(seen.top).toBeGreaterThanOrEqual(0);
       expect(seen.bottom).toBeLessThanOrEqual(seen.height);
       expect(seen.left).toBeGreaterThanOrEqual(0);
+      expect(seen.scrolls).toBe(true);
+      expect(seen.region).toBeLessThanOrEqual((seen.height * 2) / 3 + 1);
     });
   }
 });

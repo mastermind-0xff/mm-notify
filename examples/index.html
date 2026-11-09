@@ -132,8 +132,11 @@
           From three messages a button closes them all, permanent ones too. It
           sits below the messages, or above them in the bottom positions.
           <code>configure({ clearAllFrom, clearAllLabel })</code> change when it
-          comes and what it says. When the messages don't fit the window, the
-          button is pinned to the far edge as a full row over them.
+          comes and what it says. The stack takes at most 2/3 of the window
+          (<code>--notify-max-height</code>): taller, the messages scroll inside
+          it, an edge with more beyond it fades out, and the button stays at its
+          end. Wheel, touch and Tab scroll it; a new message scrolls back to the
+          start.
         </p>
         <div class="row">
           <button type="button" id="many">Five at once</button>
