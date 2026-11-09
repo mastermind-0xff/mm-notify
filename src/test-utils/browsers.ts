@@ -2,7 +2,7 @@
  * happy-dom has no popover. `currentBrowser` adds what browsers since 2024
  * have, `olderBrowser` makes it behave like the ones before: `togglePopover` is
  * missing and the selector is a SyntaxError. Both return a function that undoes
- * them.
+ * them. `currentBrowser` sends `beforetoggle` before a popover opens or closes.
  */
 
 type Undo = () => void;
@@ -30,6 +30,13 @@ export function currentBrowser(): Undo {
     if (!this.isConnected)
       throw new DOMException('Not allowed', 'InvalidStateError');
     const wanted = typeof force === 'boolean' ? force : !open.has(this);
+    // As browsers do, before the state changes; happy-dom has no ToggleEvent.
+    if (wanted !== open.has(this))
+      this.dispatchEvent(
+        Object.assign(new Event('beforetoggle'), {
+          newState: wanted ? 'open' : 'closed',
+        })
+      );
     if (wanted) open.add(this);
     else open.delete(this);
     return wanted;

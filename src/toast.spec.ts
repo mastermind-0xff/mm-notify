@@ -1057,6 +1057,119 @@ describe('toast: the scrolling stack and its fades', () => {
   });
 });
 
+describe('toast: above popovers opened after it', () => {
+  const menu = (): HTMLElement => {
+    const element = document.createElement('div');
+    element.setAttribute('popover', '');
+    document.body.append(element);
+    return element;
+  };
+  /** What the region was asked, from the spy on togglePopover. */
+  let asked: boolean[] = [];
+  /** What the browser does to the region on closing it. */
+  let onClose: (() => void) | undefined;
+  beforeEach(() => {
+    asked = [];
+    onClose = undefined;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called with `this` below
+    const toggle = HTMLElement.prototype.togglePopover;
+    vi.spyOn(HTMLElement.prototype, 'togglePopover').mockImplementation(
+      function (this: HTMLElement, force?: boolean | TogglePopoverOptions) {
+        if (this.classList.contains('mm-notify-region')) {
+          asked.push(force === true);
+          if (force === false) onClose?.();
+        }
+        return toggle.call(this, force);
+      }
+    );
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens the region again for a new message, which puts it on top', () => {
+    toast('One');
+    nextFrame();
+    menu().togglePopover(true);
+    asked = [];
+    toast('Two');
+    expect(asked.slice(0, 2)).toEqual([false, true]);
+    expect(isOpen(region())).toBe(true);
+    nextFrame();
+    expect(texts()).toEqual(['One', 'Two']);
+  });
+
+  it('does it once: after that the region is above the popover', () => {
+    toast('One');
+    nextFrame();
+    menu().togglePopover(true);
+    toast('Two');
+    asked = [];
+    toast('Three');
+    expect(asked).not.toContain(false);
+  });
+
+  it('leaves it alone under no later popover, or one opened before it', () => {
+    menu().togglePopover(true);
+    toast('One');
+    nextFrame();
+    toast('Two');
+    expect(asked).not.toContain(false);
+  });
+
+  it('counts only popovers: a dialog has its own top layer rules', () => {
+    toast('One');
+    nextFrame();
+    const dialog = document.createElement('dialog');
+    document.body.append(dialog);
+    dialog.dispatchEvent(
+      Object.assign(new Event('beforetoggle'), { newState: 'open' })
+    );
+    toast('Two');
+    expect(asked).not.toContain(false);
+  });
+
+  it('raises for a repeat too, which starts a message on screen over', () => {
+    toast('One');
+    nextFrame();
+    menu().togglePopover(true);
+    asked = [];
+    toast('One');
+    expect(asked.slice(0, 2)).toEqual([false, true]);
+  });
+
+  it('gives back the focus and the scroll a browser may take on closing', () => {
+    toast('One');
+    nextFrame();
+    const cross = closeButton('One');
+    cross.focus();
+    list().scrollTop = 120;
+    menu().togglePopover(true);
+    // A browser that moves the focus out of a closing popover and resets the scroll.
+    onClose = () => {
+      cross.blur();
+      list().scrollTop = 0;
+    };
+    const focus = vi.spyOn(cross, 'focus');
+    toast('Two');
+    expect(document.activeElement).toBe(cross);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(list().scrollTop).toBe(120);
+  });
+
+  it('moves no focus that stayed', () => {
+    toast('One');
+    nextFrame();
+    const cross = closeButton('One');
+    cross.focus();
+    menu().togglePopover(true);
+    const focus = vi.spyOn(cross, 'focus');
+    toast('Two');
+    expect(focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(cross);
+  });
+});
+
 // Plan §4: found by reading the original code, each reproduced here first.
 describe('fix: browsers without popover', () => {
   beforeEach(() => {

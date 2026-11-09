@@ -82,6 +82,8 @@ let list!: HTMLElement;
 let clearAll!: HTMLButtonElement;
 /** Watches the list and each message, for the fades. */
 let watch: ResizeObserver | undefined;
+/** A popover opened after the region is above it (see `order`). */
+let under = false;
 
 /** A bottom position: `--notify-flow: column-reverse` shows the DOM upside down. */
 const reversed = (): boolean =>
@@ -98,6 +100,34 @@ function edges(): void {
   const top = reversed() ? scrollTop + end : scrollTop;
   list.classList.toggle('mm-notify-above', top > 1);
   list.classList.toggle('mm-notify-below', top < end - 1);
+}
+
+/**
+ * The top layer stacks by opening order: a popover opened after the region is above
+ * it. Told before any popover opens or closes (on `window`, capturing: the event
+ * doesn't bubble). Browsers without popover never send it.
+ */
+function order(event: ToggleEvent): void {
+  const target = event.target as Element;
+  if (target === region) under = false;
+  else if (event.newState === 'open' && target.hasAttribute('popover'))
+    under = true;
+}
+
+/**
+ * Puts the region back on top by opening it again, for a new message. It is
+ * `display: flex` while closed, so the messages stay as they are; what a browser
+ * may lose on the way comes back: the focus (moved out on closing) and the scroll.
+ */
+function raise(): void {
+  if (!under) return;
+  const { activeElement } = document;
+  const { scrollTop } = list;
+  setOpen(false);
+  setOpen(true);
+  list.scrollTop = scrollTop;
+  if (document.activeElement !== activeElement)
+    (activeElement as HTMLElement | null)?.focus({ preventScroll: true });
 }
 
 function showClearAll(): void {
@@ -135,6 +165,8 @@ function ownRegion(): void {
   } catch {
     // See above.
   }
+  // The same listener is added once.
+  addEventListener('beforetoggle', order, true);
 }
 
 /**
@@ -188,6 +220,7 @@ export function toast(
 ): void {
   if (!text) return;
   ownRegion();
+  raise();
   const key = `${kind} ${text}`;
   const ms = options.timeoutMs ?? config.durations[kind];
   const same = config.repeats ? undefined : shown.find((e) => e.key === key);
