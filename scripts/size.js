@@ -127,10 +127,15 @@ if (typeof document !== 'undefined') throw new Error('expected plain Node');
 try {
   await import('../dist/esm/index.js');
   await import('../dist/esm/has-flash.js');
+  const { css } = await import('../dist/esm/css.js');
+  if (css !== minifiedCss())
+    problems.push('@mmutils/notify/css is not the CSS');
   const require = createRequire(import.meta.url);
   require('../dist/cjs/index.cjs');
   require('../dist/cjs/has-flash.cjs');
-  console.log('import on the server (esm, cjs): fine');
+  if (require('../dist/cjs/css.cjs').css !== minifiedCss())
+    problems.push('@mmutils/notify/css (cjs) is not the CSS');
+  console.log('import on the server (esm, cjs, the css entry too): fine');
 } catch (error) {
   problems.push(`import on the server: ${String(error)}`);
 }

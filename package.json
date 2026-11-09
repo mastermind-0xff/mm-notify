@@ -29,6 +29,11 @@
       "import": "./dist/esm/has-flash.js",
       "require": "./dist/cjs/has-flash.cjs"
     },
+    "./css": {
+      "types": "./dist/types/css.d.ts",
+      "import": "./dist/esm/css.js",
+      "require": "./dist/cjs/css.cjs"
+    },
     "./notify.css": "./dist/notify.css",
     "./package.json": "./package.json"
   },

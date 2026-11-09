@@ -10,9 +10,9 @@ const typescriptPlugin = () =>
     outDir: undefined,
   });
 
-// no dependencies. Two entries, also in package.json "exports": the package, and
-// the small check a page can load eagerly (no toast code, no CSS)
-const input = ['src/index.ts', 'src/has-flash.ts'];
+// no dependencies. Three entries, also in package.json "exports": the package, the
+// small check a page can load eagerly (no toast code, no CSS), and the CSS string
+const input = ['src/index.ts', 'src/has-flash.ts', 'src/css.ts'];
 
 export default [
   {
