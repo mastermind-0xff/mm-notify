@@ -930,84 +930,119 @@ describe('toast: closing', () => {
   });
 });
 
-describe('toast: clear all pinned when the stack does not fit', () => {
-  // happy-dom lays nothing out: the sizes are set here. The region spans the room.
-  let room = 500;
-  let stack = 100;
+describe('toast: the scrolling stack and its fades', () => {
+  // happy-dom lays nothing out: the sizes are set here. It keeps a scrollTop.
+  let content = 500;
+  let room = 200;
   beforeEach(() => {
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(
-      function (this: HTMLElement) {
-        return this.classList.contains('mm-notify-region') ? room : 0;
-      }
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
+      () => content
     );
-    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(
-      function (this: HTMLElement) {
-        if (this.classList.contains('mm-notify-list')) return stack;
-        return this.classList.contains('mm-notify-clear') ? 36 : 0;
-      }
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(
+      () => room
     );
   });
   afterEach(() => {
     vi.restoreAllMocks();
     // Here, not in the tests: a failed one must not leave ResizeObserver stubbed.
     vi.unstubAllGlobals();
-    room = 500;
-    stack = 100;
+    content = 500;
+    room = 200;
   });
 
-  const pinned = (): boolean => region().classList.contains('mm-notify-pinned');
+  const scrollTo = (top: number): void => {
+    list().scrollTop = top;
+    fire(list(), 'scroll');
+  };
+  const fades = (): string[] =>
+    ['mm-notify-above', 'mm-notify-below'].filter((name) =>
+      list().classList.contains(name)
+    );
 
-  it('is not pinned while the stack fits', () => {
+  it('fades only an edge with messages beyond it, as it scrolls', () => {
     toast('One');
     nextFrame();
-    expect(pinned()).toBe(false);
+    scrollTo(0);
+    expect(fades()).toEqual(['mm-notify-below']);
+    scrollTo(150);
+    expect(fades()).toEqual(['mm-notify-above', 'mm-notify-below']);
+    scrollTo(300);
+    expect(fades()).toEqual(['mm-notify-above']);
+    content = 200;
+    scrollTo(0);
+    expect(fades()).toEqual([]);
   });
 
-  it('pins when the stack and the button outgrow the room, and lets go when they fit', () => {
+  it('knows that a bottom position scrolls from its bottom, upwards below 0', () => {
     toast('One');
     nextFrame();
-    stack = 470;
-    dispatchEvent(new Event('resize'));
-    expect(pinned()).toBe(true);
-    stack = 400;
-    dispatchEvent(new Event('resize'));
-    expect(pinned()).toBe(false);
-    room = 300;
-    dispatchEvent(new Event('resize'));
-    expect(pinned()).toBe(true);
-  });
-
-  it('knows the bottom positions by the flow', () => {
-    toast('One');
-    nextFrame();
-    expect(region().classList).not.toContain('mm-notify-up');
     list().style.flexDirection = 'column-reverse';
-    dispatchEvent(new Event('resize'));
-    expect(region().classList).toContain('mm-notify-up');
+    scrollTo(0);
+    expect(fades()).toEqual(['mm-notify-above']);
+    scrollTo(-150);
+    expect(fades()).toEqual(['mm-notify-above', 'mm-notify-below']);
+    scrollTo(-300);
+    expect(fades()).toEqual(['mm-notify-below']);
   });
 
-  it('watches the list with a ResizeObserver, created once', async () => {
-    const observed: Element[] = [];
+  it('brings a new message into sight at the start of the list', () => {
+    toast('One');
+    nextFrame();
+    list().scrollTop = 150;
+    toast('Two');
+    expect(list().scrollTop).toBe(150);
+    nextFrame();
+    expect(list().scrollTop).toBe(0);
+  });
+
+  it('keeps the scroll while the keyboard is in the list, so its focus stays in sight', () => {
+    toast('One');
+    nextFrame();
+    closeButton('One').focus();
+    list().scrollTop = 150;
+    toast('Two');
+    nextFrame();
+    expect(list().scrollTop).toBe(150);
+  });
+
+  it('watches the list and each message with one ResizeObserver, for the fades', async () => {
+    const observed = new Set<Element>();
+    const calls: (() => void)[] = [];
     let made = 0;
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        constructor() {
+        constructor(callback: () => void) {
           made += 1;
+          calls.push(callback);
         }
         observe(element: Element): void {
-          observed.push(element);
+          observed.add(element);
+        }
+        unobserve(element: Element): void {
+          observed.delete(element);
+        }
+        disconnect(): void {
+          observed.clear();
         }
       }
     );
     await load();
     toast('One');
+    nextFrame();
+    const one = items()[0]!;
+    expect([...observed]).toEqual([list(), one]);
+    // A message that grows past the room: the observer's call brings the fade.
+    calls[0]!();
+    expect(fades()).toEqual(['mm-notify-below']);
+    closeButton('One').click();
+    vi.advanceTimersByTime(350);
+    expect([...observed]).toEqual([list()]);
+    // A rebuilt region: the old one is let go, the same observer watches the new.
     region().remove();
     toast('Two');
     expect(made).toBe(1);
-    expect(observed).toHaveLength(2);
-    expect(observed[1]).toBe(list());
-    expect(observed[0]).not.toBe(list());
+    expect([...observed]).toEqual([list()]);
   });
 
   it('does without a ResizeObserver', async () => {
@@ -1016,8 +1051,9 @@ describe('toast: clear all pinned when the stack does not fit', () => {
     expect(() => {
       toast('One');
       nextFrame();
+      closeButton('One').click();
+      vi.advanceTimersByTime(350);
     }).not.toThrow();
-    expect(texts()).toEqual(['One']);
   });
 });
 

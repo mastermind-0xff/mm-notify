@@ -14,20 +14,33 @@
  * new message on top, clear all below; `column-reverse` for the bottom: a new
  * message at the bottom, clear all above).
  *
- * The region spans the screen from where the stack starts to the far edge, less
- * `--notify-pin-bottom` (top positions) or `--notify-pin-top` (bottom positions,
- * for instance below a fixed header). When the stack doesn't fit there, toast.ts
- * pins clear all to that edge, as a full row over the messages.
+ * The stack, clear all included, is at most `--notify-max-height` tall (2/3 of the
+ * window). Taller, the messages scroll inside it and clear all stays at its end; an
+ * edge with messages beyond it fades out over `--notify-fade`.
  */
+
+/* Registered, so the fades come and go smoothly; elsewhere they simply switch. */
+@property --mm-notify-above {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --mm-notify-below {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
 .mm-notify-region {
   position: fixed;
   z-index: 2147483647; /* for browsers without the top layer */
   display: flex; /* also while closed: it is empty then, and lets the pointer through */
   flex-direction: var(--notify-flow, column);
   inset: var(--notify-top, 1rem) var(--notify-right, auto)
-    var(--notify-pin-bottom, 0) var(--notify-left, 50%);
+    var(--notify-bottom, auto) var(--notify-left, 50%);
   width: var(--notify-width, min(32rem, calc(100vw - 2rem)));
-  height: auto; /* a popover's is fit-content */
+  max-height: var(--notify-max-height, 66.67vh);
   margin: 0;
   padding: 0;
   overflow: visible;
@@ -38,38 +51,81 @@
   pointer-events: none;
 }
 
-/* Bottom positions (toast.ts reads the flow): from the top edge to the bottom. */
-.mm-notify-up {
-  top: var(--notify-pin-top, 0);
-  bottom: var(--notify-bottom, auto);
+/* Where the browser has `dvh`: a phone's address bar doesn't count as room. */
+@supports (height: 1dvh) {
+  .mm-notify-region {
+    max-height: var(--notify-max-height, 66.67dvh);
+  }
 }
 
-/* It never scrolls: what doesn't fit goes past the edge. Its size is what toast.ts
-   measures. The z-index keeps the messages' own (see toast.ts) under clear all. */
+/* Scrolls when they don't fit, so clear all stays on screen. The padding is room
+   for what the scrolling would clip: the slide-in above, the glow around. No bar:
+   the fades would cut it, and it would narrow the messages. Wheel, touch and Tab
+   scroll it (toast.ts keeps the newest in sight). The z-index keeps the messages'
+   own (see toast.ts) under clear all.
+
+   The fades: a mask, opaque but for the edges with messages beyond them
+   (`.mm-notify-above`, `.mm-notify-below`, set by toast.ts). There the padding is
+   clear and the messages fade out over `--notify-fade` inside it; the scroll
+   padding keeps a focused cross out of both. */
 .mm-notify-list {
   z-index: 0;
   display: flex;
-  flex: none;
   flex-direction: var(--notify-flow, column);
+  margin: -1.25rem -1rem 0;
+  padding: 1.25rem 1rem 1.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding: calc(1.25rem + var(--notify-fade, 2rem)) 0
+    calc(1.5rem + var(--notify-fade, 2rem));
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    #0000 calc(var(--mm-notify-above, 0) * 1.25rem),
+    #000 calc(var(--mm-notify-above, 0) * (1.25rem + var(--notify-fade, 2rem))),
+    #000
+      calc(
+        100% - var(--mm-notify-below, 0) * (1.5rem + var(--notify-fade, 2rem))
+      ),
+    #0000 calc(100% - var(--mm-notify-below, 0) * 1.5rem)
+  );
+  mask-image: linear-gradient(
+    #0000 calc(var(--mm-notify-above, 0) * 1.25rem),
+    #000 calc(var(--mm-notify-above, 0) * (1.25rem + var(--notify-fade, 2rem))),
+    #000
+      calc(
+        100% - var(--mm-notify-below, 0) * (1.5rem + var(--notify-fade, 2rem))
+      ),
+    #0000 calc(100% - var(--mm-notify-below, 0) * 1.5rem)
+  );
+  transition:
+    --mm-notify-above 0.3s,
+    --mm-notify-below 0.3s;
 }
 
-/* Bottom positions: room under the newest message for its glow, which the screen's
-   edge would cut. 2rem with its margin, as when the list scrolled and had padding. */
-.mm-notify-up .mm-notify-list {
-  padding-bottom: 1.5rem;
+.mm-notify-list::-webkit-scrollbar {
+  display: none;
 }
 
-/* Pinned, clear all covers the messages, also while it comes in at -1 (see below). */
-.mm-notify-pinned .mm-notify-list {
-  z-index: -2;
+/* While it scrolls, all of it takes the wheel and touch, not only the messages. */
+.mm-notify-above {
+  --mm-notify-above: 1;
+  pointer-events: auto;
 }
 
-/* Below the list the gap is the last message's own margin, above it this one's. The
-   z-index: at rest above the messages, which it covers when pinned. While it comes
-   and goes it moves over the next message, so -1 until it has stopped: see below. */
+.mm-notify-below {
+  --mm-notify-below: 1;
+  pointer-events: auto;
+}
+
+/* The negative margin takes back the list's bottom padding, so below the list the
+   gap is the last message's own margin. Above the list its margins already cancel.
+   The z-index: at rest above what scrolls under it (the list's clipping reaches into
+   it for the glow, and it has to stay readable and hit). While it comes and goes it
+   moves over the next message, so -1 until it has stopped: see the rule below. */
 .mm-notify-clear {
   z-index: 1;
-  margin: 0 auto 0.625rem;
+  flex: none;
+  margin: -1.5rem auto 0.625rem;
   padding: 0.375rem 0.875rem;
   font: inherit;
   color: var(--notify-clear-color, #fff);
@@ -92,23 +148,12 @@
   transition-delay: 0s;
 }
 
-/* The stack doesn't fit: a full row at the far edge, the message gap from it. */
-.mm-notify-pinned .mm-notify-clear {
-  position: absolute;
-  inset: auto 0 0;
-}
-
-.mm-notify-pinned.mm-notify-up .mm-notify-clear {
-  inset: 0.625rem 0 auto;
-}
-
 .mm-notify {
   box-sizing: content-box; /* the height it grows to is the content's, whatever the site's */
   display: flex;
   flex: none;
   align-items: flex-start;
   gap: 0.75rem;
-  max-height: 40vh;
   margin-bottom: 0.625rem;
   padding: 0.875rem 0.5rem 0.875rem 1rem;
   font-size: var(--notify-font-size, 1rem);
@@ -172,6 +217,7 @@
   border-radius: 4px;
   cursor: pointer;
   transition: opacity 0.3s ease-in-out;
+  scroll-margin: 0.5rem 0; /* focused, its message's padding comes into sight too */
 }
 
 .mm-notify-close:hover {
@@ -233,6 +279,7 @@
   .mm-notify,
   .mm-notify.mm-notify-out,
   .mm-notify.mm-notify-out > *,
+  .mm-notify-list,
   .mm-notify-clear {
     animation: none;
     transition: none;

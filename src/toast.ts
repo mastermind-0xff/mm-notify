@@ -80,6 +80,7 @@ let region: HTMLElement | undefined;
 /** The live region: only messages, or the button below would be read out as one. */
 let list!: HTMLElement;
 let clearAll!: HTMLButtonElement;
+/** Watches the list and each message, for the fades. */
 let watch: ResizeObserver | undefined;
 
 /** A bottom position: `--notify-flow: column-reverse` shows the DOM upside down. */
@@ -87,22 +88,16 @@ const reversed = (): boolean =>
   getComputedStyle(list).flexDirection === 'column-reverse';
 
 /**
- * Pins clear all to the far edge of the screen while the stack doesn't fit (CSS
- * `.mm-notify-pinned`). The region spans the screen from where the stack starts to
- * the far edge, laid out from the site's tokens, so its height is the room there
- * is: no `dvh` needed. The flow decides which edge is the far one. The gap: the
- * button's own below it, and as much again above it when pinned at the top.
+ * Fades the edges of the list that have messages beyond them (CSS `.mm-notify-above`
+ * and `.mm-notify-below`). On scrolling, and when the list or a message changes size.
  */
-function fit(): void {
-  if (!region) return;
-  const up = reversed();
-  const gap = parseFloat(getComputedStyle(clearAll).marginBottom);
-  region.classList.toggle('mm-notify-up', up);
-  region.classList.toggle(
-    'mm-notify-pinned',
-    list.offsetHeight + clearAll.offsetHeight + gap * (up ? 2 : 1) >
-      region.clientHeight
-  );
+function edges(): void {
+  const { scrollTop, scrollHeight, clientHeight } = list;
+  const end = scrollHeight - clientHeight;
+  // A bottom position scrolls from its bottom: 0 there, negative upwards.
+  const top = reversed() ? scrollTop + end : scrollTop;
+  list.classList.toggle('mm-notify-above', top > 1);
+  list.classList.toggle('mm-notify-below', top < end - 1);
 }
 
 function showClearAll(): void {
@@ -131,15 +126,15 @@ function ownRegion(): void {
   showClearAll();
   region.append(list, clearAll);
   document.body.append(region);
-  // The list's size changes with every message that grows or shrinks, the room
-  // with the window (a phone's address bar too). The same listener is added once.
-  addEventListener('resize', fit);
+  list.addEventListener('scroll', edges);
+  // The list changes size with the window, a message as it grows or shrinks: what is
+  // beyond an edge with either. Too old a browser: no fades, nothing hidden by one.
+  watch?.disconnect();
   try {
-    (watch ??= new ResizeObserver(fit)).observe(list);
+    (watch ??= new ResizeObserver(edges)).observe(list);
   } catch {
-    // Too old a browser: the button stays at the end of the stack.
+    // See above.
   }
-  fit();
 }
 
 /**
@@ -172,6 +167,7 @@ function close(entry: Shown): void {
   item.classList.add(OUT);
   const remove = (): void => {
     item.remove();
+    watch?.unobserve(item);
     if (!list.childElementCount) setOpen(false);
   };
   // The CSS transition is 0.3s from the next frame, and reduced motion drops it. A
@@ -269,6 +265,9 @@ export function toast(
     // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
     if (reversed()) item.style.zIndex = String(++depth);
     setOpen(true); // an earlier toast's removal may have closed it since
+    // The newest in sight, unless the keyboard is in the list: its focus stays in sight.
+    if (!list.contains(document.activeElement)) list.scrollTop = 0;
+    watch?.observe(item);
     entry.sync();
   });
 }

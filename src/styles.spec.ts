@@ -106,6 +106,9 @@ describe('the CSS string', () => {
 describe('notify.css', () => {
   const code = source.replaceAll(/\/\*[\s\S]*?\*\//g, '');
 
+  const rule = (selector: string): string =>
+    code.split(`${selector} {`)[1]?.split('}')[0] ?? '';
+
   it('prefixes every class and keyframe', () => {
     const classes = [...code.matchAll(/\.([a-z][\w-]*)/gi)]
       .map((match) => match[1]!)
@@ -139,48 +142,64 @@ describe('notify.css', () => {
     expect(code).toMatch(/z-index: \d+/);
   });
 
-  it('never scrolls the messages: clear all is pinned instead (toast.ts)', () => {
-    expect(code).not.toMatch(/overflow-y|dvh|--notify-max-height/);
-    // Or they would shrink to fit the region, which spans the screen.
-    expect(code).toMatch(/\.mm-notify \{[^}]*flex: none;/);
-    expect(code).toMatch(/\.mm-notify-list \{[^}]*flex: none;/);
+  it('scrolls the messages in a stack of at most 2/3 of the window, clear all included', () => {
+    expect(code).toMatch(
+      /\.mm-notify-region \{[^}]*inset: var\(--notify-top, 1rem\) var\(--notify-right, auto\)\s+var\(--notify-bottom, auto\) var\(--notify-left, 50%\);/
+    );
+    // vh first: `var()` with a dvh unknown to the browser would leave no limit at all.
+    expect(code).toMatch(
+      /\.mm-notify-region \{[^}]*max-height: var\(--notify-max-height, 66\.67vh\);/
+    );
+    expect(code).toMatch(
+      /@supports \(height: 1dvh\) \{\s*\.mm-notify-region \{\s*max-height: var\(--notify-max-height, 66\.67dvh\);\s*\}\s*\}/
+    );
+    const list = rule('.mm-notify-list');
+    expect(list).toContain('overflow-y: auto;');
+    expect(list).toContain('overscroll-behavior: contain;');
+    expect(list).not.toContain('flex:'); // it shrinks to the room, then scrolls
+    // Or they would shrink to fit, instead of scrolling; clear all keeps its size.
+    expect(rule('.mm-notify')).toContain('flex: none;');
+    expect(rule('.mm-notify-clear')).toContain('flex: none;');
+    // A message as tall as its text: the list scrolls, nothing is cut.
+    expect(rule('.mm-notify')).not.toContain('max-height');
   });
 
-  it('spans the screen from the start of the stack to the far edge', () => {
-    expect(code).toMatch(
-      /\.mm-notify-region \{[^}]*inset: var\(--notify-top, 1rem\) var\(--notify-right, auto\)\s+var\(--notify-pin-bottom, 0\) var\(--notify-left, 50%\);/
-    );
-    // A popover's own height is fit-content, which would ignore the insets.
-    expect(code).toMatch(/\.mm-notify-region \{[^}]*height: auto;/);
-    expect(code).toMatch(
-      /\.mm-notify-up \{\s*top: var\(--notify-pin-top, 0\);\s*bottom: var\(--notify-bottom, auto\);/
-    );
-  });
-
-  it('pins clear all as a full row, the message gap from the edge', () => {
-    expect(code).toMatch(
-      /\.mm-notify-pinned \.mm-notify-clear \{\s*position: absolute;\s*inset: auto 0 0;/
-    );
-    expect(code).toMatch(
-      /\.mm-notify-pinned\.mm-notify-up \.mm-notify-clear \{\s*inset: 0\.625rem 0 auto;/
-    );
-  });
-
-  it('keeps room under a bottom stack for the glow of its newest message', () => {
-    expect(code).toMatch(
-      /\.mm-notify-up \.mm-notify-list \{\s*padding-bottom: 1\.5rem;\s*\}/
+  it('shows no scrollbar: the fades would cut it, and it would narrow the messages', () => {
+    expect(rule('.mm-notify-list')).toContain('scrollbar-width: none;');
+    expect(rule('.mm-notify-list::-webkit-scrollbar')).toContain(
+      'display: none;'
     );
   });
 
-  it('puts the messages under a pinned clear all, also while it comes in at -1', () => {
-    const under =
-      /\.mm-notify-pinned \.mm-notify-list \{\s*z-index: (-?\d+);/.exec(
-        code
-      )?.[1];
-    const coming = /z-index: (-?\d+);/.exec(
-      rule('.mm-notify-clear.mm-notify-out')
-    )?.[1];
-    expect(Number(under)).toBeLessThan(Number(coming));
+  it('fades an edge only while toast.ts says there are messages beyond it', () => {
+    const list = rule('.mm-notify-list');
+    const masks = [
+      ...list.matchAll(
+        /((?:-webkit-)?mask-image): (linear-gradient\([^;]*\));/g
+      ),
+    ];
+    expect(masks.map((match) => match[1])).toEqual([
+      '-webkit-mask-image',
+      'mask-image',
+    ]);
+    expect(masks[0]![2]).toBe(masks[1]![2]);
+    // Both 0 (the default, also without @property): opaque from edge to edge.
+    for (const edge of ['above', 'below']) {
+      expect(masks[0]![2]).toContain(`var(--mm-notify-${edge}, 0)`);
+      expect(rule(`.mm-notify-${edge}`)).toContain(`--mm-notify-${edge}: 1;`);
+      expect(rule(`.mm-notify-${edge}`)).toContain('pointer-events: auto;');
+      expect(code.replaceAll(/\s+/g, ' ')).toContain(
+        `@property --mm-notify-${edge} { syntax: '<number>'; inherits: false; initial-value: 0; }`
+      );
+      expect(list).toContain(`--mm-notify-${edge} 0.3s`);
+    }
+  });
+
+  it('keeps a focused cross out of the fades and from under clear all', () => {
+    expect(rule('.mm-notify-list')).toMatch(
+      /scroll-padding: calc\(1\.25rem \+ var\(--notify-fade, 2rem\)\) 0\s+calc\(1\.5rem \+ var\(--notify-fade, 2rem\)\);/
+    );
+    expect(rule('.mm-notify-close')).toContain('scroll-margin: 0.5rem 0;');
   });
 
   it('measures a message as content-box, whatever the site sets for all', () => {
@@ -218,12 +237,9 @@ describe('notify.css', () => {
 
   it('never animates for those who asked not to', () => {
     expect(code).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify\.mm-notify-out,\s*\.mm-notify\.mm-notify-out > \*,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify\.mm-notify-out,\s*\.mm-notify\.mm-notify-out > \*,\s*\.mm-notify-list,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
     );
   });
-
-  const rule = (selector: string): string =>
-    code.split(`${selector} {`)[1]?.split('}')[0] ?? '';
 
   it('closes the box in 0.3 s and its children in 0.1 s', () => {
     const box = rule('.mm-notify.mm-notify-out');
@@ -243,8 +259,13 @@ describe('notify.css', () => {
 
   it('keeps clear all one message gap from the messages', () => {
     const gap = /margin-bottom: (\S+);/.exec(rule('.mm-notify'))?.[1];
-    expect(rule('.mm-notify-list')).not.toMatch(/margin|padding/);
-    expect(rule('.mm-notify-clear')).toContain(`margin: 0 auto ${gap ?? '?'};`);
+    // The list's padding is room for the glow and the slide-in, its margins take it
+    // back: below the list the button's negative margin does, so the gap is the message's.
+    expect(rule('.mm-notify-list')).toContain('margin: -1.25rem -1rem 0;');
+    expect(rule('.mm-notify-list')).toContain('padding: 1.25rem 1rem 1.5rem;');
+    expect(rule('.mm-notify-clear')).toContain(
+      `margin: -1.5rem auto ${gap ?? '?'};`
+    );
   });
 
   it('moves clear all under the messages, and raises it once it has stopped', () => {
