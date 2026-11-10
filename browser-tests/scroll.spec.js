@@ -246,6 +246,104 @@ for (const { name, attribute, sign } of POSITIONS) {
       await pageStayed(page, testInfo);
     });
 
+    // Plan §7 N20, a trade-off kept: the list's box reaches past the messages (its
+    // padding, room for the glow and the slide-in), so while it scrolls and takes the
+    // pointer (the wheel test above) a band around the messages does too: under a sticky
+    // header like aesweets', 20 px of the header. Letting the pointer through instead made
+    // the wheel fall through a gap to the page in Chromium and WebKit (review of scroll-stack).
+    test('at rest the page around and between the messages takes the pointer; while it scrolls, the list box does', async ({
+      page,
+    }) => {
+      const points = () =>
+        page.evaluate(() => {
+          const list = document.querySelector('.mm-notify-list');
+          const l = list.getBoundingClientRect();
+          const items = [...document.querySelectorAll('.mm-notify')];
+          // The newest is the first in the DOM; its neighbour is the second.
+          const [a, b] = items.map((item) => item.getBoundingClientRect());
+          const x = (a.left + a.right) / 2;
+          const y = (a.top + a.bottom) / 2;
+          const named = {
+            gap: [
+              x,
+              a.top < b.top ? (a.bottom + b.top) / 2 : (b.bottom + a.top) / 2,
+            ],
+            beyondNewest: [x, a.top < b.top ? a.top - 10 : a.bottom + 10],
+            leftOfIt: [a.left - 8, y],
+            rightOfIt: [a.right + 8, y],
+          };
+          const region = document.querySelector('.mm-notify-region');
+          return Object.fromEntries(
+            Object.entries(named).map(([name, [px, py]]) => {
+              const hit = document.elementFromPoint(px, py);
+              return [
+                name,
+                {
+                  inListBox:
+                    px > l.left && px < l.right && py > l.top && py < l.bottom,
+                  onStack: Boolean(hit && region.contains(hit)),
+                },
+              ];
+            })
+          );
+        });
+      await add(page, 1, 3);
+      for (const [name, seen] of Object.entries(await points()))
+        expect(seen, `fits, ${name}`).toEqual({
+          inListBox: true,
+          onStack: false,
+        });
+      await add(page, 4, 12);
+      expect((await state(page)).scrollable).toBe(true);
+      for (const [name, seen] of Object.entries(await points()))
+        expect(seen, `scrolls, ${name}`).toEqual({
+          inListBox: true,
+          onStack: true,
+        });
+    });
+
+    test('a new message while the pointer is on the list: no jump, its message stays under it', async ({
+      page,
+    }) => {
+      await add(page, 1, 12);
+      const point = await page.evaluate((s) => {
+        const list = document.querySelector('.mm-notify-list');
+        list.scrollTop = s * -200;
+        const l = list.getBoundingClientRect();
+        const x = (l.left + l.right) / 2;
+        const middle = (l.top + l.bottom) / 2;
+        const item = document.elementFromPoint(x, middle).closest('.mm-notify');
+        const r = item.getBoundingClientRect();
+        return {
+          x,
+          y: (r.top + r.bottom) / 2,
+          text: item.querySelector('p').textContent,
+        };
+      }, sign);
+      await page.mouse.move(point.x, point.y);
+      await page.evaluate(() =>
+        window.t.toast('The newest.', 'success', { timeoutMs: 0 })
+      );
+      await expect(page.locator('.mm-notify')).toHaveCount(13);
+      await page.evaluate(async () => {
+        window.t.settleMessages();
+        for (let n = 0; n < 2; n += 1)
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+      });
+      const seen = await page.evaluate(
+        ({ x, y }) => ({
+          scrollTop: document.querySelector('.mm-notify-list').scrollTop,
+          under: document
+            .elementFromPoint(x, y)
+            ?.closest('.mm-notify')
+            ?.querySelector('p').textContent,
+        }),
+        point
+      );
+      expect(seen.scrollTop).not.toBe(0);
+      expect(seen.under).toBe(point.text);
+    });
+
     test('a new message while scrolled: back at the start, the new one in sight', async ({
       page,
     }) => {

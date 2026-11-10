@@ -1042,6 +1042,19 @@ describe('toast: the scrolling stack and its fades', () => {
     expect(list().scrollTop).toBe(150);
   });
 
+  it('keeps the scroll while the pointer is on the list, so its message stays under it', () => {
+    toast('One');
+    nextFrame();
+    // happy-dom has no hover.
+    vi.spyOn(list(), 'matches').mockImplementation(
+      (selector) => selector === ':hover'
+    );
+    list().scrollTop = 150;
+    toast('Two');
+    nextFrame();
+    expect(list().scrollTop).toBe(150);
+  });
+
   it('watches the list and each message with one ResizeObserver, for the fades', async () => {
     const observed = new Set<Element>();
     const calls: (() => void)[] = [];

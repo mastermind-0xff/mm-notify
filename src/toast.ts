@@ -308,8 +308,11 @@ export function toast(
     // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
     if (reversed()) item.style.zIndex = String(++depth);
     setOpen(true); // an earlier toast's removal may have closed it since
-    // The newest in sight, unless the keyboard is in the list: its focus stays in sight.
-    if (!list.contains(document.activeElement)) list.scrollTop = 0;
+    // The newest in sight, unless someone is in the list: the keyboard, whose focus stays
+    // in sight, or the pointer, which would find another message under it (and close
+    // that one with the click it was about to make).
+    if (!list.matches(':hover') && !list.contains(document.activeElement))
+      list.scrollTop = 0;
     watch?.observe(item);
     entry.sync();
   });
