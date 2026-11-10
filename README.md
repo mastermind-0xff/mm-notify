@@ -70,11 +70,11 @@ Importing on the server is safe. There `flash` and `showFlash` do nothing and
 Shows a message. `kind` is `'success'`, `'error'`, `'alert'` or `'neutral'`; empty
 text shows nothing. Options:
 
-| Option       | Default             | Meaning                                                                 |
-| ------------ | ------------------- | ----------------------------------------------------------------------- |
-| `timeoutMs`  | by kind             | Milliseconds on screen. `0` keeps it until closed.                      |
-| `announce`   | `true`              | `false` hides it from screen readers, when a status line says the same. |
-| `closeLabel` | `Close the message` | The close button's label.                                               |
+| Option       | Default             | Meaning                                                                  |
+| ------------ | ------------------- | ------------------------------------------------------------------------ |
+| `timeoutMs`  | by kind             | Milliseconds on screen. `0` keeps it until closed.                       |
+| `announce`   | `true`              | `false`: not read out when it appears, when a status line says the same. |
+| `closeLabel` | `Close the message` | The close button's label.                                                |
 
 - Default durations: success and neutral 5 s, alert 8 s, error 10 s. Nothing stays
   until closed unless asked: `timeoutMs: 0`, or `0` in `configure({ durations })`.
@@ -87,6 +87,11 @@ text shows nothing. Options:
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
 - The text goes through `textContent`. There are no HTML messages.
+- Screen readers: the messages sit in a polite live region, an error as `role="alert"`.
+  With `announce: false` the message's own box is `aria-live="off"`, which takes it out of
+  that region: it is not read out when it appears, but it stays in the accessibility tree
+  with its named close button, reachable by Tab (no `aria-hidden`, so axe's
+  `aria-hidden-focus` holds). An announced repeat of it joins the live region and is read.
 
 A new message comes in at the start of the stack: on top for the top positions, at the
 bottom for the bottom positions (`--notify-flow`, see "Position"). It grows into place, so
@@ -270,20 +275,20 @@ loads no toast code.
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (3100 B for the package, 200 B for the eager check) or when the eager code
+budgets (3500 B for the package, the user's decision of 2026-11-10; 200 B for the eager check) or when the eager code
 would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 8769     | 3413 | 3022   |
-| `toast` alone             | 8287     | 3203 | 2820   |
+| The package, with its CSS | 8784     | 3423 | 3013   |
+| `toast` alone             | 8302     | 3210 | 2821   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
 The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
-**Over the guard on this branch:** the scrolling stack with its fades, the raise above later
-popovers and the `dvh` fallback took the package from 3049 B to 3413 B, so `npm run size` fails
-at its 3100 B guard until the author decides on it.
+The scrolling stack with its fades, the raise above later popovers and the `dvh` fallback
+took the package from 3049 B to 3423 B; the guard went from 3100 to 3500 B on the user's word
+("3500 is fine", on their earlier "size is not crucial": it loads on first use).
 
 ## As a `file:` dependency
 

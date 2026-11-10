@@ -24,7 +24,12 @@ From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
   and the scroll. Sites that hid and showed the region themselves can drop that.
 - **`@mmutils/notify/css`:** exports `css`, the minified CSS string the package injects,
   for a site's own checks or build. Its own entry, so it adds nothing to the others.
-- `npm run size`: see the README; the guard of 3100 B is not raised here.
+- **`announce: false` no longer uses `aria-hidden`** (axe `aria-hidden-focus`: it hid a
+  focusable close button). The message's box is `aria-live="off"` instead: out of the live
+  region, not announced when it appears, still in the accessibility tree and the Tab order
+  with its named close button. An announced repeat of it joins the live region (an error as
+  `role="alert"`) and is read. Announced messages are unchanged.
+- `npm run size`: 3423 B, guard raised from 3100 to 3500 B (the user's decision).
 
 From the aesweets.com integration review (2026-11-08):
 

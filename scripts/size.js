@@ -18,8 +18,10 @@ import { minifiedCss } from './css-text.js';
 const root = resolve(import.meta.dirname, '..');
 // The package loads on first use, so its size is a guard rather than a hard limit
 // (the author's call). The eager check runs on every page: that budget is the real one.
-// 2800 became 3100 on 2026-11-08 for the aesweets fixes (pinned clear all, repeats).
-const BUDGETS = { package: 3100, eager: 200 };
+// 2800 became 3100 on 2026-11-08 for the aesweets fixes (pinned clear all, repeats), and
+// 3500 on 2026-11-10 for the scrolling stack with its fades and the raise: the user's
+// decision ("3500 is fine"), on their "size is not crucial".
+const BUDGETS = { package: 3500, eager: 200 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>
