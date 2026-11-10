@@ -10,9 +10,12 @@ From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
   Taller, the messages scroll inside it and Clear all stays at its end. An edge with
   messages beyond it fades out over `--notify-fade` (`2rem`), smoothly where `@property`
   exists; an edge with nothing beyond never fades. No scrollbar; wheel and touch scroll the
-  list (also over the gaps while it scrolls), `overscroll-behavior: contain`. Tab brings a
-  cross out of sight fully into view, clear of the fades and of Clear all. A new message
-  scrolls the list back to its start, unless the keyboard focus is in the list.
+  list (also over the gaps while it scrolls: then the list's box takes the pointer, a band
+  of 1–1.5rem around the messages included, which a click on the page there doesn't get
+  through), `overscroll-behavior: contain`. Tab brings a cross out of sight fully into view,
+  clear of the fades and of Clear all; the arrow keys scroll from a focused cross. A new
+  message scrolls the list back to its start, unless the keyboard focus or the pointer is
+  in the list (the pointer: so that its message doesn't move away under a click).
   **Removed:** `--notify-pin-bottom`, `--notify-pin-top`, the classes `.mm-notify-pinned`
   and `.mm-notify-up`. **Back:** `--notify-max-height` (its default is new: 2/3 of the
   window). The region no longer spans to the far edge, so either `--notify-flow` works from
@@ -29,7 +32,7 @@ From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
   region, not announced when it appears, still in the accessibility tree and the Tab order
   with its named close button. An announced repeat of it joins the live region (an error as
   `role="alert"`) and is read. Announced messages are unchanged.
-- `npm run size`: 3423 B, guard raised from 3100 to 3500 B (the user's decision).
+- `npm run size`: 3438 B, guard raised from 3100 to 3500 B (the user's decision).
 
 From the aesweets.com integration review (2026-11-08):
 

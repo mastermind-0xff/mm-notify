@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 3.0 KB minified and gzipped, CSS included. No dependencies.
+- 3.4 KB minified and gzipped, CSS included. No dependencies.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -111,18 +111,31 @@ Firefox 128) the fade comes and goes in 0.3 s; elsewhere it switches. There is n
 scrollbar (the fades would cut it, and it would narrow the messages): the wheel and touch
 scroll the list, gaps between messages included, and `overscroll-behavior: contain` keeps
 the page still at its end (Safari 16 and later). Tab brings a close cross that is out of
-sight fully into view, clear of the fades and of Clear all (`scroll-padding`).
+sight fully into view, clear of the fades and of Clear all (`scroll-padding`), and the
+arrow keys scroll the list from a focused cross.
+
+While it scrolls, the list's whole box takes the pointer, so that the wheel doesn't fall
+through a gap to the page. That box reaches a little past the messages (room for their
+glow and the slide-in: 1.25rem above them, 1.5rem below, 1rem at the sides), so there a
+click doesn't reach the page either, until the stack is short enough again. Under a sticky
+header, the band above a top stack lies over the header's lower edge.
+A stack that fits lets the pointer through everywhere but the messages and Clear all.
 
 A new message comes in at the start of the list, so the list scrolls back there to show
-it, unless the keyboard focus is in the list: that focus stays where it is, in sight, and
-the live region reads the new message out.
+it, unless someone is in the list: the keyboard focus, which stays where it is, in sight,
+or the pointer, which would otherwise find another message under it (and close that one
+with the click it was about to make). If the list was scrolled away from its start, the new
+message then comes in out of sight, beyond the faded edge, and the live region reads it
+out. On a touch screen a tapped message can keep its hover until the next tap elsewhere,
+and with it the list's place.
 
 **Above popovers opened later.** The top layer stacks by opening order, so a popover (a
 menu) opened while messages show would sit above them, and above later messages too. A
 new message (or a repeat) after such a popover opens the region again, which puts it on
 top. Nothing on screen changes: no animation runs again, the scroll stays, and the focus
 stays where it was (given back with `preventScroll` if a browser moves it). Browsers
-without popover have no top layer: nothing to do there. Dialogs are left alone.
+without popover have no top layer: nothing to do there. Dialogs are left alone, and so is
+a popover inside a shadow root: the event that tells of it doesn't leave the root.
 
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
@@ -280,14 +293,14 @@ would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 8784     | 3423 | 3013   |
-| `toast` alone             | 8302     | 3210 | 2821   |
+| The package, with its CSS | 8807     | 3438 | 3028   |
+| `toast` alone             | 8325     | 3224 | 2844   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
 The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
 The scrolling stack with its fades, the raise above later popovers and the `dvh` fallback
-took the package from 3049 B to 3423 B; the guard went from 3100 to 3500 B on the user's word
+took the package from 3049 B to 3438 B; the guard went from 3100 to 3500 B on the user's word
 ("3500 is fine", on their earlier "size is not crucial": it loads on first use).
 
 ## As a `file:` dependency

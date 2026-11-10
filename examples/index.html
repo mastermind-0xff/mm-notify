@@ -93,9 +93,9 @@
           <li>
             <button type="button" popovertarget="menu">Open a menu</button>
             and then show a message with the button in it: the message sits
-            above the open menu (top layer). Close the other messages first: the
-            top layer stacks by opening order, so a menu opened after them sits
-            above them all.
+            above the open menu (top layer), and so do the messages already
+            there. The top layer stacks by opening order, so the menu opened
+            over them; the new message opens their region again, on top.
             <div id="menu" popover>
               <p>An open menu, a popover of the page.</p>
               <button type="button" data-kind="success">Show a message</button>
