@@ -261,11 +261,45 @@ describe('toast: screen readers', () => {
     ]);
   });
 
-  it('hides it from them with announce: false', () => {
-    toast('Said by the status line', 'error', { announce: false });
+  it('takes a message out of the live region with announce: false, not out of reach', () => {
+    for (const kind of KINDS)
+      toast(`Said by the status line, ${kind}`, kind, { announce: false });
     nextFrame();
-    expect(items()[0]!.getAttribute('aria-hidden')).toBe('true');
-    expect(items()[0]!.getAttribute('role')).toBeNull();
+    for (const item of items()) {
+      expect(item.getAttribute('aria-live')).toBe('off');
+      expect(item.getAttribute('role')).toBeNull();
+      // axe aria-hidden-focus: nothing around the close button is hidden.
+      expect(item.closest('[aria-hidden]')).toBeNull();
+      const button = item.querySelector('button')!;
+      expect(button.getAttribute('aria-label')).toBe('Close the message');
+      button.focus();
+      expect(document.activeElement).toBe(button);
+    }
+  });
+
+  it('leaves the announced ones in the live region as before, an error as an alert', () => {
+    for (const kind of KINDS) toast(`Read out, ${kind}`, kind);
+    nextFrame();
+    expect(list().getAttribute('aria-live')).toBe('polite');
+    for (const item of items()) {
+      expect(item.hasAttribute('aria-live')).toBe(false);
+      expect(item.getAttribute('role')).toBe(
+        item.classList.contains('mm-notify-error') ? 'alert' : null
+      );
+    }
+  });
+
+  it('mixes both in one stack, in the order they came', () => {
+    toast('One', 'success');
+    toast('Two', 'success', { announce: false });
+    toast('Three', 'neutral');
+    nextFrame();
+    expect(texts()).toEqual(['One', 'Two', 'Three']);
+    expect(items().map((item) => item.getAttribute('aria-live'))).toEqual([
+      null,
+      'off',
+      null,
+    ]);
   });
 
   it('builds again when the region was taken out of the page', () => {
@@ -437,10 +471,13 @@ describe('toast: the same text twice, by default', () => {
     nextFrame();
     const before = textNode();
     toast('Something went wrong.', 'error', { announce: false });
-    expect(items()[0]!.getAttribute('aria-hidden')).toBe('true');
+    // An unannounced repeat of it: still out of the live region, its text untouched.
+    expect(items()[0]!.getAttribute('aria-live')).toBe('off');
+    expect(items()[0]!.getAttribute('role')).toBeNull();
     expect(textNode()).toBe(before);
     toast('Something went wrong.', 'error');
-    expect(items()[0]!.hasAttribute('aria-hidden')).toBe(false);
+    expect(items()[0]!.hasAttribute('aria-live')).toBe(false);
+    expect(items()[0]!.getAttribute('role')).toBe('alert');
     expect(textNode()).not.toBe(before);
   });
 
@@ -1155,6 +1192,21 @@ describe('toast: above popovers opened after it', () => {
     expect(document.activeElement).toBe(cross);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
     expect(list().scrollTop).toBe(120);
+  });
+
+  it('leaves an unannounced message out of the live region, and its text alone', () => {
+    toast('Quiet', 'success', { announce: false });
+    nextFrame();
+    const textNode = (): Node | null =>
+      items()[0]!.querySelector('p')!.firstChild;
+    const before = textNode();
+    menu().togglePopover(true);
+    asked = [];
+    toast('Two');
+    expect(asked.slice(0, 2)).toEqual([false, true]);
+    const quiet = items()[0]!;
+    expect(quiet.getAttribute('aria-live')).toBe('off');
+    expect(textNode()).toBe(before);
   });
 
   it('moves no focus that stayed', () => {

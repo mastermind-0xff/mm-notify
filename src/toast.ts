@@ -7,7 +7,11 @@ import { config, type ToastKind } from './config.js';
 import { injectStyles } from './styles.js';
 
 export interface ToastOptions {
-  /** Read out by screen readers (default). Off when a status line on the page says the same. */
+  /**
+   * Read out by screen readers when it appears (default). Off when a status line
+   * on the page says the same: the message is still there for them, with its close
+   * button, only not announced.
+   */
   readonly announce?: boolean;
   /** Milliseconds on screen; 0 keeps it until closed. Default by kind. */
   readonly timeoutMs?: number;
@@ -231,8 +235,14 @@ export function toast(
 
   const item = document.createElement('div');
   item.className = `mm-notify mm-notify-${kind}`;
-  if (options.announce === false) item.setAttribute('aria-hidden', 'true');
-  else if (kind === 'error') item.setAttribute('role', 'alert');
+  // Unannounced: its own box is no live region, which takes it out of the list's
+  // (the nearest `aria-live` counts). Not `aria-hidden`: its close button is focusable.
+  const loud = (): void => {
+    item.removeAttribute('aria-live');
+    if (kind === 'error') item.setAttribute('role', 'alert');
+  };
+  if (options.announce === false) item.setAttribute('aria-live', 'off');
+  else loud();
   const message = document.createElement('p');
   message.textContent = text;
   const button = makeButton('mm-notify-close', () => {
@@ -265,8 +275,8 @@ export function toast(
       // Until closed (0 or less) is the longest: a repeat never shortens a message.
       if (duration > 0 && (time <= 0 || time > duration)) duration = time;
       if (announce) {
-        // Shown unannounced before: not hidden any more, or nothing would be read.
-        item.removeAttribute('aria-hidden');
+        // Shown unannounced before: in the live region now, or nothing would be read.
+        loud();
         // A text node in its place: a change screen readers read from a live region.
         message.textContent = text;
       }

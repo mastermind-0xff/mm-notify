@@ -326,3 +326,156 @@ test.describe('top layer', () => {
     expect(onTop).toBe(true);
   });
 });
+
+// aesweets D42: an unannounced message (announce: false) is no live region of its own,
+// which takes it out of the list's, instead of aria-hidden over its focusable close button.
+test.describe('announce: false', () => {
+  const MIXED = [
+    ['Saved.', 'success', true],
+    ['Saved, said by the status line.', 'success', false],
+    ['Failed.', 'error', true],
+    ['Failed, said by the status line.', 'error', false],
+    ['Heads up, said by the status line.', 'alert', false],
+    ['News, said by the status line.', 'neutral', false],
+  ];
+
+  const showMixed = async (page) => {
+    await page.evaluate(async (all) => {
+      for (const [text, kind, announce] of all)
+        await window.t.toast(text, kind, { timeoutMs: 0, announce });
+    }, MIXED);
+    await expect(page.locator('.mm-notify')).toHaveCount(MIXED.length);
+  };
+
+  /** What axe's aria-hidden-focus looks for, and what each message says about itself. */
+  const audit = (page) =>
+    page.evaluate((all) => {
+      const focusable =
+        'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      const hiddenWithFocus = [
+        ...document.querySelectorAll('[aria-hidden="true"]'),
+      ]
+        .filter(
+          (hidden) =>
+            hidden.matches(focusable) || hidden.querySelector(focusable)
+        )
+        .map((hidden) => hidden.outerHTML.slice(0, 80));
+      return {
+        hiddenWithFocus,
+        list: document
+          .querySelector('.mm-notify-list')
+          .getAttribute('aria-live'),
+        items: all.map(([text]) => {
+          const item = window.t.item(text);
+          const button = item.querySelector('.mm-notify-close');
+          return {
+            text,
+            live: item.getAttribute('aria-live'),
+            role: item.getAttribute('role'),
+            label: button.getAttribute('aria-label'),
+            inLiveList: item.parentElement.getAttribute('aria-live'),
+          };
+        }),
+      };
+    }, MIXED);
+
+  test('is out of the live region, its close button reachable and named, nothing aria-hidden around it', async ({
+    page,
+    browserName,
+  }) => {
+    await open(page);
+    await showMixed(page);
+    const seen = await audit(page);
+    expect(seen.hiddenWithFocus).toEqual([]);
+    expect(seen.list).toBe('polite');
+    for (const [[text, kind, announce], item] of MIXED.map((m, n) => [
+      m,
+      seen.items[n],
+    ]))
+      expect(item, text).toEqual({
+        text,
+        live: announce ? null : 'off',
+        role: announce && kind === 'error' ? 'alert' : null,
+        label: 'Close the message',
+        inLiveList: 'polite',
+      });
+
+    // Tab reaches every close button, the unannounced ones too.
+    await page.locator('.mm-notify-close').first().focus();
+    const reached = [];
+    for (let n = 0; n < MIXED.length; n += 1) {
+      if (n > 0) await page.keyboard.press('Tab');
+      reached.push(
+        await page.evaluate(
+          () => document.activeElement.parentElement.textContent
+        )
+      );
+    }
+    expect(reached.sort()).toEqual(MIXED.map(([text]) => text).sort());
+
+    // Chromium's accessibility tree: one active live region (the list, polite) and one
+    // alert (the announced error); the unannounced error is no alert. CDP shows no
+    // inactive ("off") region, so that part rests on the attribute above. Every close
+    // button is in the tree with its name.
+    if (browserName === 'chromium') {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Accessibility.enable');
+      const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+      const live = nodes
+        .map((node) => node.properties?.find((p) => p.name === 'live'))
+        .filter(Boolean)
+        .map((p) => p.value.value);
+      expect(live.sort()).toEqual(['assertive', 'polite']);
+      expect(nodes.filter((node) => node.role?.value === 'alert')).toHaveLength(
+        1
+      );
+      const buttons = nodes.filter(
+        (node) =>
+          node.role?.value === 'button' &&
+          node.name?.value === 'Close the message'
+      );
+      expect(buttons.length).toBe(MIXED.length);
+      expect(buttons.every((node) => !node.ignored)).toBe(true);
+    }
+  });
+
+  test('a repeat: unannounced stays out, announced joins the live region (an error as an alert)', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(() =>
+      window.t.toast('Failed.', 'error', { timeoutMs: 0, announce: false })
+    );
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    const attributes = () =>
+      page.evaluate(() => {
+        const item = window.t.item('Failed.');
+        return [item.getAttribute('aria-live'), item.getAttribute('role')];
+      });
+    await page.evaluate(() =>
+      window.t.toast('Failed.', 'error', { timeoutMs: 0, announce: false })
+    );
+    expect(await attributes()).toEqual(['off', null]);
+    await page.evaluate(() =>
+      window.t.toast('Failed.', 'error', { timeoutMs: 0 })
+    );
+    expect(await attributes()).toEqual([null, 'alert']);
+    expect(await page.locator('.mm-notify').count()).toBe(1);
+  });
+
+  test('raised above a later popover, it stays out of the live region', async ({
+    page,
+  }) => {
+    await open(page);
+    await showMixed(page);
+    const before = await audit(page);
+    await page.evaluate(() => {
+      document.querySelector('#menu').showPopover();
+    });
+    await page.evaluate(() =>
+      window.t.toast('After the menu.', 'neutral', { timeoutMs: 0 })
+    );
+    await expect(page.locator('.mm-notify')).toHaveCount(MIXED.length + 1);
+    expect(await audit(page)).toEqual(before);
+  });
+});
