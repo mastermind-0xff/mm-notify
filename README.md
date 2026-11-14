@@ -329,7 +329,11 @@ cascade order.
 
 The default colors keep 4.5:1 with the dark text; white text fails on them. If you
 change them, check the contrast yourself. A progress bar is drawn in the text's color
-(`--notify-color`), its track in the same color at 20 %, so it follows a dark look.
+(`--notify-color`), its track in the same color at 20 %, so it follows a dark look. A
+log is a lighter panel (white at 20 %), which keeps 4.5:1 for the dark text on every
+default color and for a dark look's light text on dark colors. The log's panel and font
+have no tokens: a rule as specific as `.mm-notify .mm-notify-log` changes them (the
+package's own sheet comes after the page's).
 
 ### Position
 

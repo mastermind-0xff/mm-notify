@@ -380,5 +380,38 @@ describe('notify.css', () => {
       );
       expect(worst).toBeLessThan(4.5);
     });
+
+    /** `#rrggbb` as channels 0–255. */
+    const channels = (color: string): number[] =>
+      [1, 3, 5].map((at) => parseInt(color.slice(at, at + 2), 16));
+    const hex = (values: number[]): string =>
+      `#${values.map((value) => Math.round(value).toString(16).padStart(2, '0')).join('')}`;
+
+    // Review 2026-11-14: a darker panel (black at 8 %) took the error red to 4.25:1.
+    it.each(['success', 'error', 'alert', 'neutral'])(
+      'keeps 4.5:1 for a log on %s: its panel over the box, the text on it',
+      (kind) => {
+        const panel = /background: rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\);/.exec(
+          own('.mm-notify-log')
+        );
+        expect(panel).not.toBeNull();
+        const [r, g, b, alpha] = panel!.slice(1).map(Number) as [
+          number,
+          number,
+          number,
+          number,
+        ];
+        const box = channels(defaultOf(kind));
+        const seen = hex(
+          [r, g, b].map((value, at) => value * alpha + box[at]! * (1 - alpha))
+        );
+        const text = luminance(defaultOf('color'));
+        const background = luminance(seen);
+        const ratio =
+          (Math.max(text, background) + 0.05) /
+          (Math.min(text, background) + 0.05);
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+      }
+    );
   });
 });

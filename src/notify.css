@@ -290,7 +290,11 @@
   }
 }
 
-/* Console-like: the newest line at the bottom, about six in sight, then it scrolls. */
+/* Console-like: the newest line at the bottom, about six in sight, then it scrolls.
+   A lighter panel: the dark text keeps 4.5:1 on every box (a darker one took the error
+   red under it), and a dark look's light text keeps it too (the example page's: 4.6:1
+   at the least). No token for it: a rule as specific as `.mm-notify .mm-notify-log`
+   changes it (the package's sheet comes after the page's). */
 .mm-notify-log {
   max-height: var(--notify-log-height, 8.4em);
   padding: 0.25rem 0.5rem;
@@ -301,7 +305,7 @@
     monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: rgb(0 0 0 / 0.08);
+  background: rgb(255 255 255 / 0.2);
   border-radius: 4px;
 }
 
