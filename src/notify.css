@@ -295,10 +295,13 @@
   max-height: var(--notify-log-height, 8.4em);
   padding: 0.25rem 0.5rem;
   overflow-y: auto;
-  font: 0.8125em/1.4 var(--notify-log-font, ui-monospace, Consolas, monospace);
+  font:
+    0.8125em/1.4 ui-monospace,
+    Consolas,
+    monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--notify-log, rgb(0 0 0 / 0.08));
+  background: rgb(0 0 0 / 0.08);
   border-radius: 4px;
 }
 

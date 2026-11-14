@@ -121,6 +121,7 @@ const DEFAULTS = {
   width: Number(/min\(([\d.]+)rem/.exec(TOKENS['--notify-width'])[1]),
   height: Number.parseFloat(TOKENS['--notify-max-height']),
   fade: Number.parseFloat(TOKENS['--notify-fade']),
+  logHeight: Number.parseFloat(TOKENS['--notify-log-height']),
   text: fullHex(TOKENS['--notify-color']),
   glowFollows: true,
   radius: Number.parseFloat(TOKENS['--notify-radius']),
@@ -190,6 +191,7 @@ function tokensOf(v) {
     '--notify-font-size': `${v.fontSize}rem`,
     '--notify-clear': v.clearBackground,
     '--notify-clear-color': v.clearText,
+    '--notify-log-height': `${v.logHeight}em`,
   };
   for (const kind of KINDS) {
     const channels = fromHex(v[`glow-${kind}`]).join(' ');
@@ -455,6 +457,17 @@ const PREVIEWS = {
       { timeoutMs: 0 }
     );
   },
+  'Progress and a log'() {
+    toast('Exporting your orders: 5 of 12 files…', 'neutral', {
+      timeoutMs: 0,
+    }).progress(5 / 12);
+    toast('Waiting for the bank…', 'alert', { timeoutMs: 0 }).progress(true);
+    const deploy = toast('Deploying the release…', 'neutral', {
+      timeoutMs: 0,
+    }).progress(0.75);
+    for (let step = 1; step <= 9; step += 1)
+      deploy.log(`12:00:0${step}  Step ${step} of the deploy`);
+  },
   'Twelve, scrolling'() {
     for (let number = 1; number <= 12; number += 1)
       toast(`Message ${number}.`, KINDS[number % 4], { timeoutMs: 0 });
@@ -634,6 +647,7 @@ $('#controls').append(
     slider('paddingLeft', 'Padding, left', 0.25, 2, 0.125, 'rem'),
     slider('gap', 'Icon to text', 0, 2, 0.125, 'rem'),
     slider('spacing', 'Between messages', 0, 2, 0.125, 'rem'),
+    slider('logHeight', 'A log, tall', 2.8, 16.8, 1.4, 'em'),
     slider('border', 'Border', 0, 6, 1, 'px'),
     color('borderColor', 'Border color'),
     check('icons', 'Icons')
