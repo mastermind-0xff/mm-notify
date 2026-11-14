@@ -4,7 +4,10 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 3.4 KB minified and gzipped, CSS included. No dependencies.
+- 4.3 KB minified and gzipped, CSS included. No dependencies.
+- A message can change while it is up: new words or a new kind, a progress bar, a
+  console-like log. Work in the background is tracked in one message that becomes
+  its outcome.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
@@ -63,12 +66,14 @@ Importing on the server is safe. There `flash` and `showFlash` do nothing and
 ## API
 
 `toast`, `flash`, `showFlash` and `configure` come from `@mmutils/notify`, with the types
-`ToastKind`, `ToastOptions` and `NotifyConfig`.
+`ToastKind`, `ToastOptions`, `ToastHandle` and `NotifyConfig`.
 
 ### `toast(text, kind = 'neutral', options?)`
 
-Shows a message. `kind` is `'success'`, `'error'`, `'alert'` or `'neutral'`; empty
-text shows nothing. Options:
+Shows a message and returns its handle, to change it later (see "Changing a message";
+code that ignores it works as before). `kind` is `'success'`, `'error'`, `'alert'` or
+`'neutral'`; empty text shows nothing and returns a handle that is already closed.
+Options:
 
 | Option       | Default             | Meaning                                                                  |
 | ------------ | ------------------- | ------------------------------------------------------------------------ |
@@ -137,6 +142,120 @@ stays where it was (given back with `preventScroll` if a browser moves it). Brow
 without popover have no top layer: nothing to do there. Dialogs are left alone, and so is
 a popover inside a shadow root: the event that tells of it doesn't leave the root.
 
+### Changing a message: the handle
+
+`toast()` returns a `ToastHandle`. It changes the message in place, so work in the
+background (an upload, a job on the server, a slow request) is one message from start
+to outcome. Each method but `close` returns the handle, to chain.
+
+| Member                           | What it does                                                                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `update(text, kind?, options?)`  | New words, and a new kind if given. The progress bar and the log stay. An empty text keeps the words (`update('', 'alert')` changes only the kind).             |
+| `replace(text, kind?, options?)` | New contents altogether, as `toast(text, kind, options)` would show them, in place: no bar, no log, the kind's time. The kind stays when not given.             |
+| `progress(value, text?)`         | A progress bar under the text: a number from 0 to 1, `true` while the amount is unknown, `false` to remove it. `text` is what screen readers say for the value. |
+| `log(line)`                      | Adds a line to a log under the text: monospaced, the newest at the bottom, about six lines in sight, then it scrolls inside the message.                        |
+| `close()`                        | Closes the message, as its cross does.                                                                                                                          |
+| `closed`                         | `true` once the message is closed, for whatever reason (or never showed).                                                                                       |
+| `whenClosed`                     | A promise fulfilled when it closes: stop polling, close an `EventSource`.                                                                                       |
+
+`options` take the same `timeoutMs`, `announce` and `closeLabel` as `toast()`.
+
+```js
+// A job on the server, polled: the bar holds the message until the outcome replaces it.
+const job = toast('Exporting your orders…').progress(0);
+while (!job.closed) {
+  const state = await (await fetch(`/api/jobs/${id}`)).json();
+  if (state.finished) {
+    job.replace(`Exported ${state.total} files.`, 'success');
+    break;
+  }
+  job
+    .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
+    .progress(state.progress, `${state.done} of ${state.total} files`);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+
+// Console-like lines pushed by the server; the log stays with the outcome.
+const deploy = toast('Deploying…').progress(true);
+const source = new EventSource('/api/deploy/log');
+void deploy.whenClosed.then(() => source.close());
+source.onmessage = (event) => deploy.log(event.data);
+source.addEventListener('done', () => {
+  source.close();
+  deploy.progress(false).update('Deployed.', 'success');
+});
+
+// A request that may be slow: a progress message only past 2 s, then the outcome.
+let saving;
+const slow = setTimeout(() => {
+  saving = toast('Still saving…', 'neutral', { announce: false }).progress(
+    true
+  );
+}, 2000);
+const answer = await fetch('/api/save', { method: 'POST', body });
+clearTimeout(slow);
+const [text, kind] =
+  answer.ok ? ['Saved.', 'success'] : ['Saving failed.', 'error'];
+if (saving && !saving.closed) saving.replace(text, kind);
+else toast(text, kind);
+```
+
+The package has no network code: where the updates come from is the page's business
+(`fetch`, `EventSource`, a `WebSocket`, a worker). `npm run examples` has all three of
+these against a pretend backend.
+
+**The time.**
+
+- While a progress bar shows, the time doesn't run: the message waits for its outcome,
+  however long the work takes. Removing the bar (`progress(false)`, or `replace()`)
+  starts the time over in full.
+- Every other change (`update`, `replace`, a `log` line) starts the time over in full,
+  so new words are on screen long enough to be read. Hovering and focusing still hold it,
+  and `sequential` still runs one timer at a time (a message with a bar holds the line,
+  like one that stays until closed).
+- Which time: `update` keeps the message's time, unless it passes `timeoutMs` or changes
+  the kind, which takes that kind's default (a permanent "Saving…" that becomes
+  `'success'` closes after 5 s). `replace` takes the kind's default, or `timeoutMs`, as
+  `toast()` does.
+- A log without a bar keeps a message up only while lines come: for a long job, give it
+  a bar or `timeoutMs: 0`.
+
+**Closed is closed.** Once the reader closes the message (its cross, Clear all), or its
+time runs out, every method does nothing: the message doesn't come back, and nothing
+throws, so a job may go on calling `update`. Check `closed`, or wait for `whenClosed`, to
+stop the work's updates; show a new `toast()` if the outcome must still be said.
+
+**Screen readers.**
+
+- `toast()` announces as before. `update` with new words of the same kind is silent by
+  default (step texts would flood a screen reader); a new kind is read out (the outcome),
+  and `announce` decides either way. `replace` is read out unless `announce: false`.
+  Silent means the message's box is `aria-live="off"` from then on, as with
+  `announce: false`; the next change that is read out joins the live region again, an
+  error as `role="alert"`.
+- The bar is a `role="progressbar"` named by the message's text (`aria-labelledby`),
+  with `aria-valuenow` from 0 to 100, or none while the amount is unknown (which ARIA
+  reads as indeterminate), and `aria-valuetext` when given. Its ticks are never
+  announced; a screen reader finds the value when it goes to the bar.
+- The log is a `role="log"` with `aria-live="off"`: its lines are not read out one by
+  one; it is in the accessibility tree and the Tab order (after the close button), so a
+  keyboard can scroll it. To say a milestone, `update(text, kind, { announce: true })`.
+- Reduced motion: the bar's fill doesn't glide, and a bar with no amount stands still,
+  filled in a half tone, instead of the stretch that runs across it.
+
+**Repeats.** A `toast()` with the kind and text of a message on screen shows no second
+message and returns that message's handle (unless `configure({ repeats: true })`). Two
+pieces of work that start with the same text then share one message, and the last
+change wins: give them different texts ("Saving your address…", "Saving your card…") or
+turn on `repeats`. A repeat compares with what a message says now, after its updates.
+An update never merges messages: a message whose new words equal another's keeps its
+place, and both show; a later repeat goes to the older one. A closed message is no
+repeat target.
+
+**Its height.** The message grows and shrinks with its contents, at once, without the
+growth animation of a new message; a long log scrolls inside it, so the stack keeps its
+2/3 of the window.
+
 ### `flash(text, kind = 'success', key?)`, `showFlash(key?)`, `hasFlash(key?)`
 
 `flash` leaves one message for the next page in `sessionStorage`, `showFlash` shows
@@ -173,6 +292,7 @@ export { flash, showFlash, toast } from '@mmutils/notify';
 | `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.       |
 | `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.    |
 | `sequential`    | `false`             | One timer at a time, see below.                                   |
+| `logLines`      | `100`               | How many lines a message's log keeps (`log()`); older ones go.    |
 | `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".        |
 
 **`sequential`:** normally every message counts down at once. With `true` one timer
@@ -203,9 +323,11 @@ cascade order.
 | `--notify-radius`, `--notify-font-size`                              | `9px`, `1rem`                      |
 | `--notify-clear`, `--notify-clear-color`: the clear-all button       | `#111`, `#fff`                     |
 | `--notify-flow`: which way the stack grows                           | `column`                           |
+| `--notify-log-height`: a log's height, then it scrolls               | `8.4em` (six lines)                |
 
 The default colors keep 4.5:1 with the dark text; white text fails on them. If you
-change them, check the contrast yourself.
+change them, check the contrast yourself. A progress bar is drawn in the text's color
+(`--notify-color`), its track in the same color at 20 %, so it follows a dark look.
 
 ### Position
 
@@ -288,20 +410,23 @@ loads no toast code.
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (3500 B for the package, the user's decision of 2026-11-10; 200 B for the eager check) or when the eager code
-would load another chunk. It also imports the built files on Node.
+budgets (4350 B for the package, a guard; 200 B for the eager check) or when the eager
+code would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 8807     | 3438 | 3028   |
-| `toast` alone             | 8325     | 3224 | 2844   |
+| The package, with its CSS | 11200    | 4290 | 3826   |
+| `toast` alone             | 10710    | 4076 | 3613   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
 The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
 The scrolling stack with its fades, the raise above later popovers and the `dvh` fallback
 took the package from 3049 B to 3438 B; the guard went from 3100 to 3500 B on the user's word
-("3500 is fine", on their earlier "size is not crucial": it loads on first use).
+("3500 is fine", on their earlier "size is not crucial": it loads on first use). The
+changing messages took it to 4290 B (the handle about 300 B, the progress bar and the log
+about 560 B, CSS included), and the guard to 4350 B: raised by the agent, a question for
+the user (a separate entry for the bar and the log would keep the main one near 3750 B).
 
 ## As a `file:` dependency
 
@@ -322,9 +447,11 @@ npm run examples
 ```
 
 Builds the package and serves `examples/` at http://localhost:5179/examples/ with a
-strict CSP: all kinds, `timeoutMs` and `announce`, repeats, sequential timers, clear all,
-positions, a dark look, the flash across a reload, a message above an open menu and a
-simulated browser without popover.
+strict CSP: all kinds, `timeoutMs` and `announce`, work in the background (a progress bar
+polled with `fetch`, log lines from an `EventSource`, a slow request turned into its
+outcome, against a pretend backend in `examples/jobs.js`), repeats, sequential timers,
+clear all, positions, a dark look, the flash across a reload, a message above an open menu
+and a simulated browser without popover.
 
 ## Design tool
 

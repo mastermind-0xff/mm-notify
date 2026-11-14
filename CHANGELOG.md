@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+From the user's answer to aesweets.com D49 (2026-11-14: "It should be possible to update
+the notification"):
+
+- **`toast()` returns a handle** (`ToastHandle`); code that ignores it works as before.
+  `update(text, kind?, options?)` changes the words (and the kind), keeping a bar and a
+  log; `replace(text, kind?, options?)` changes everything, as `toast()` would show it, in
+  place; `progress(value, text?)` shows a progress bar (0 to 1, `true` for an unknown
+  amount, `false` to remove it); `log(line)` adds a console-like line (the newest in sight,
+  scrolling inside the message, `configure({ logLines })` kept, 100 by default);
+  `close()`; `closed`; `whenClosed`, a promise. An empty text returns a closed handle.
+- **The time:** while a bar shows the message doesn't time out; every other change starts
+  its time over. `update` keeps the time unless the kind changes (that kind's default) or
+  `timeoutMs` is given; `replace` takes the kind's default.
+- **Closed is closed:** after the reader (or the time, or Clear all) closed a message,
+  every method does nothing; it never comes back.
+- **Screen readers:** an update of the words alone is silent unless `announce: true`; a new
+  kind and `replace` are read out unless `announce: false`. The bar is a named
+  `role="progressbar"` (`aria-valuenow`, none while the amount is unknown,
+  `aria-valuetext` when given), never announced; the log is a `role="log"` with
+  `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no
+  amount stands still.
+- **Repeats:** a repeat that shows no message returns the handle of the one on screen and
+  compares with what it says now; an update never merges two messages.
+- **New token** `--notify-log-height` (`8.4em`, six lines). A message is `flex-wrap: wrap`
+  now (the bar and the log take a row each); nothing else changes for a message without
+  them.
+- `npm run size`: 4290 B (was 3438 B), guard raised from 3500 to 4350 B by the agent, a
+  question for the user.
+
 From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
 
 - **The stack scrolls again, with faded edges** (replaces the pinned Clear all below): the
