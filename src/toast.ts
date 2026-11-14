@@ -334,6 +334,8 @@ export function toast(
     duration =
       timeoutMs ?? (moved || fresh ? config.durations[kind] : duration);
     if (fresh) {
+      // A focused log keeps the focus in the message, and its hold, on the cross.
+      if (lines?.contains(document.activeElement)) button.focus();
       bar?.remove();
       lines?.remove();
       bar = lines = undefined;

@@ -1843,6 +1843,20 @@ describe('handle.log', () => {
     expect(log().querySelector('img')).toBeNull();
   });
 
+  it('hands its focus to the cross when replace takes it away, and the hold with it', () => {
+    const job = toast('Deploying…', 'success').log('Building');
+    nextFrame();
+    log().focus();
+    job.replace('Deployed.', 'success');
+    const cross = items()[0]!.querySelector('button')!;
+    expect(document.activeElement).toBe(cross);
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['Deployed.']);
+    cross.blur();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+
   it('is a log that is not read out, and a keyboard can scroll it', () => {
     toast('Deploying…').log('Building');
     nextFrame();
