@@ -344,7 +344,14 @@ export function toast(
       'aria-label',
       closeLabel ?? button.getAttribute('aria-label') ?? config.closeLabel
     );
-    voice(announce ?? (moved || fresh));
+    // Not on the page yet (before its frame): new words keep the voice it came with, or
+    // an announced message would arrive silent; the words read are the latest.
+    voice(
+      announce ??
+        (moved ||
+          fresh ||
+          (!item.isConnected && !item.hasAttribute('aria-live')))
+    );
     now = words || now;
     message.textContent = now;
     entry.key = `${kind} ${now}`;

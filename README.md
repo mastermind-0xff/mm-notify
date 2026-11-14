@@ -230,6 +230,8 @@ stop the work's updates; show a new `toast()` if the outcome must still be said.
 - `toast()` announces as before. `update` with new words of the same kind is silent by
   default (step texts would flood a screen reader); a new kind is read out (the outcome),
   and `announce` decides either way. `replace` is read out unless `announce: false`.
+  Before the message is on screen (its first frame), new words keep the announcement it
+  came with, so an announced message is read out with its latest words.
   Silent means the message's box is `aria-live="off"` from then on, as with
   `announce: false`; the next change that is read out joins the live region again, an
   error as `role="alert"`.

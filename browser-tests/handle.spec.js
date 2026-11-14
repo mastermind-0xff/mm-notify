@@ -302,6 +302,30 @@ test('the accessibility tree: a named progress bar, a log, read out only when as
   await expect(item).not.toHaveAttribute('aria-live');
 });
 
+test('an update before the frame keeps the announcement it came with', async ({
+  page,
+}) => {
+  // Review 2026-11-14: a first update before the frame (a fast answer, a tab in the
+  // background) silenced a message that was to be read out.
+  await open(page);
+  const seen = await page.evaluate(async () => {
+    const { toast } = await window.t.load();
+    const job = toast('Exporting…');
+    job.update('Exporting 1 of 12…');
+    toast('Still saving…', 'neutral', { announce: false }).update(
+      'Still saving, 2 of 3…'
+    );
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => setTimeout(resolve, 50));
+    });
+    const live = (text) => window.t.item(text).getAttribute('aria-live');
+    const before = [live('Exporting 1 of 12…'), live('Still saving, 2 of 3…')];
+    job.update('Exporting 2 of 12…');
+    return [...before, live('Exporting 2 of 12…')];
+  });
+  expect(seen).toEqual([null, 'off', 'off']);
+});
+
 test.describe('the example page, its pretend backend', () => {
   test('polls an export: a bar that fills, then the outcome in its place', async ({
     page,

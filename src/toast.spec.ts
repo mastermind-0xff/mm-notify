@@ -1634,6 +1634,27 @@ describe('handle.update', () => {
     expect(item.querySelector('p')!.firstChild).not.toBe(node);
   });
 
+  it('keeps the voice it came with before its frame: an announced message arrives announced', () => {
+    // Review 2026-11-14: the first update often comes before the frame (a fast first
+    // answer, a tab in the background, where frames wait), and silenced the message.
+    const job = toast('Exporting…').update('Exporting 1 of 12…');
+    toast('Still saving…', 'neutral', { announce: false }).update(
+      'Still saving, 2 of 3…'
+    );
+    toast('Uploading…').update('Uploading 2 of 5…', 'neutral', {
+      announce: false,
+    });
+    nextFrame();
+    const [loud, quiet, asked] = items();
+    expect(loud!.hasAttribute('aria-live')).toBe(false);
+    expect(loud!.textContent).toBe('Exporting 1 of 12…');
+    expect(quiet!.getAttribute('aria-live')).toBe('off');
+    expect(asked!.getAttribute('aria-live')).toBe('off');
+    // On the page, new words of the same kind are silent again.
+    job.update('Exporting 2 of 12…');
+    expect(loud!.getAttribute('aria-live')).toBe('off');
+  });
+
   it('is read out when the kind changes, unless told not to', () => {
     const job = toast('Saving…', 'neutral', { announce: false });
     nextFrame();

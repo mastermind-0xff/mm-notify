@@ -19,7 +19,9 @@ the notification"):
 - **Closed is closed:** after the reader (or the time, or Clear all) closed a message,
   every method does nothing; it never comes back.
 - **Screen readers:** an update of the words alone is silent unless `announce: true`; a new
-  kind and `replace` are read out unless `announce: false`. The bar is a named
+  kind and `replace` are read out unless `announce: false`. Before its first frame a
+  message keeps the announcement it came with (review: a first update there silenced an
+  announced message). The bar is a named
   `role="progressbar"` (`aria-valuenow`, none while the amount is unknown,
   `aria-valuetext` when given), never announced; the log is a `role="log"` with
   `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no
