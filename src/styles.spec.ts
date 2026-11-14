@@ -254,6 +254,14 @@ describe('notify.css', () => {
     );
   });
 
+  it('draws the cross and the bar in the text color under forced colors', () => {
+    // Review 2026-11-14: backgrounds take the page's color there, and both vanished.
+    const media = code.slice(code.indexOf('@media (forced-colors: active)'));
+    expect(media).toMatch(
+      /\.mm-notify-close::before,\s*\.mm-notify-close::after,\s*\.mm-notify-bar::before,\s*\.mm-notify-bar::after \{\s*background: CanvasText;/
+    );
+  });
+
   it('draws the progress bar in the text color, its value from toast.ts', () => {
     expect(own('.mm-notify-bar::after')).toContain(
       'transform: scaleX(var(--mm-notify-value, 0));'

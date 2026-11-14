@@ -363,3 +363,14 @@
     animation: none;
   }
 }
+
+/* Forced colors (Windows high contrast) give every background the page's color: the
+   cross and the bar, drawn as backgrounds, would vanish. The text's color instead. */
+@media (forced-colors: active) {
+  .mm-notify-close::before,
+  .mm-notify-close::after,
+  .mm-notify-bar::before,
+  .mm-notify-bar::after {
+    background: CanvasText;
+  }
+}

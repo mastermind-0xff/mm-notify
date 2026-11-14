@@ -130,6 +130,35 @@ test.describe('the progress bar', () => {
     await page.clock.runFor(5400);
     await expect(page.locator('.mm-notify')).toHaveCount(0);
   });
+
+  test('shows under forced colors, as the cross does', async ({ page }) => {
+    // Review 2026-11-14: forced colors give backgrounds the page's color, and the bar
+    // and the cross are drawn as backgrounds: both vanished (Chromium).
+    await page.emulateMedia({ forcedColors: 'active' });
+    await open(page);
+    await page.evaluate(async (text) => {
+      await window.t.job('upload', text, 'neutral', { timeoutMs: 0 });
+      window.t.jobs.upload.progress(0.4);
+    }, UPLOAD);
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    const seen = await page.evaluate((text) => {
+      const item = window.t.item(text);
+      const background = (element, pseudo) =>
+        getComputedStyle(element, pseudo).backgroundColor;
+      return {
+        forced: matchMedia('(forced-colors: active)').matches,
+        box: background(item),
+        fill: background(item.querySelector('.mm-notify-bar'), '::after'),
+        track: background(item.querySelector('.mm-notify-bar'), '::before'),
+        cross: background(item.querySelector('.mm-notify-close'), '::before'),
+      };
+    }, UPLOAD);
+    // An engine that doesn't emulate them has nothing to show here.
+    if (!seen.forced) return;
+    expect(seen.fill).not.toBe(seen.box);
+    expect(seen.track).toBe(seen.fill);
+    expect(seen.cross).toBe(seen.fill);
+  });
 });
 
 test.describe('the log', () => {
