@@ -250,7 +250,7 @@ describe('notify.css', () => {
   it('keeps a bar of unknown amount still for them, filled in a half tone', () => {
     const media = code.slice(code.indexOf('@media (prefers-reduced-motion'));
     expect(media).toMatch(
-      /\.mm-notify-bar:not\(\[aria-valuenow\]\)::after \{\s*right: 0;\s*opacity: 0\.5;\s*transform: none;/
+      /\.mm-notify-bar:not\(\[aria-valuenow\]\)::after \{\s*right: 0;\s*opacity: 0\.5;\s*transform: none;\s*animation: none;/
     );
   });
 
