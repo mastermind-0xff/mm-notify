@@ -454,6 +454,99 @@ test.describe('the example page, its pretend backend', () => {
   });
 });
 
+// Review 2026-11-14: a bar holds its message until the outcome, and the examples (and
+// the README's patterns) had ways to end without one: a "Still saving…" or a bar that
+// stayed up for good after the network failed.
+test.describe('the example page when the network fails', () => {
+  /** The browsers' own console lines about a failed or refused request. */
+  const failedRequests =
+    /Failed to load resource|net::|NetworkError|EventSource|404|Not Found|could not be loaded|access control|establish a connection/i;
+
+  const messages = (page) =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.mm-notify')].map((item) => ({
+        text: item.querySelector('p').textContent,
+        bar: Boolean(item.querySelector('.mm-notify-bar')),
+      }))
+    );
+
+  test('a slow request that fails after its progress showed: that message becomes the failure', async ({
+    page,
+    problems,
+  }) => {
+    problems.provoked.push(failedRequests);
+    await open(page);
+    await page.route('**/api/slow**', async (route) => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2600);
+      });
+      await route.abort();
+    });
+    await page.locator('#slow').click();
+    await expect(page.locator('.mm-notify p')).toHaveText('Still saving…', {
+      timeout: 5000,
+    });
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      'The server is not reachable. Please try again.',
+      { timeout: 5000 }
+    );
+    expect(await messages(page)).toEqual([
+      { text: 'The server is not reachable. Please try again.', bar: false },
+    ]);
+  });
+
+  test('a request that fails at once: no progress message comes later', async ({
+    page,
+    problems,
+  }) => {
+    problems.provoked.push(failedRequests);
+    await open(page);
+    await page.route('**/api/slow**', (route) => route.abort());
+    await page.locator('#slow').click();
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      'The server is not reachable. Please try again.'
+    );
+    await page.waitForTimeout(2500);
+    expect(await messages(page)).toEqual([
+      { text: 'The server is not reachable. Please try again.', bar: false },
+    ]);
+  });
+
+  test('a poll that fails: the bar gives way to the failure', async ({
+    page,
+    problems,
+  }) => {
+    problems.provoked.push(failedRequests);
+    await open(page);
+    await page.route('**/api/jobs/*', (route) => route.abort());
+    await page.locator('#poll').click();
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      'The export stopped. Please try again.'
+    );
+    expect(await messages(page)).toEqual([
+      { text: 'The export stopped. Please try again.', bar: false },
+    ]);
+  });
+
+  test('a stream the server refuses: the bar gives way to the failure', async ({
+    page,
+    problems,
+  }) => {
+    problems.provoked.push(failedRequests);
+    await open(page);
+    await page.route('**/api/jobs/*/log', (route) =>
+      route.fulfill({ status: 404, body: 'No such job' })
+    );
+    await page.locator('#stream').click();
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      'The deploy lost its connection.'
+    );
+    expect(await messages(page)).toEqual([
+      { text: 'The deploy lost its connection.', bar: false },
+    ]);
+  });
+});
+
 test.describe('to look at', () => {
   for (const [name, viewport] of [
     ['desktop', { width: 1366, height: 800 }],

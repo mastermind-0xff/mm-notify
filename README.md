@@ -163,16 +163,21 @@ to outcome. Each method but `close` returns the handle, to chain.
 ```js
 // A job on the server, polled: the bar holds the message until the outcome replaces it.
 const job = toast('Exporting your orders…').progress(0);
-while (!job.closed) {
-  const state = await (await fetch(`/api/jobs/${id}`)).json();
-  if (state.finished) {
-    job.replace(`Exported ${state.total} files.`, 'success');
-    break;
+try {
+  while (!job.closed) {
+    const state = await (await fetch(`/api/jobs/${id}`)).json();
+    if (state.finished) {
+      job.replace(`Exported ${state.total} files.`, 'success');
+      break;
+    }
+    job
+      .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
+      .progress(state.progress, `${state.done} of ${state.total} files`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  job
-    .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
-    .progress(state.progress, `${state.done} of ${state.total} files`);
-  await new Promise((resolve) => setTimeout(resolve, 500));
+} catch {
+  // A bar waits for its outcome: a failure is one too, or the bar stays up.
+  job.replace('The export stopped. Please try again.', 'error');
 }
 
 // Console-like lines pushed by the server; the log stays with the outcome.
@@ -184,6 +189,10 @@ source.addEventListener('done', () => {
   source.close();
   deploy.progress(false).update('Deployed.', 'success');
 });
+source.onerror = () => {
+  source.close(); // or it reconnects, and the bar waits for good
+  deploy.progress(false).update('The deploy lost its connection.', 'error');
+};
 
 // A request that may be slow: a progress message only past 2 s, then the outcome.
 let saving;
@@ -192,13 +201,22 @@ const slow = setTimeout(() => {
     true
   );
 }, 2000);
-const answer = await fetch('/api/save', { method: 'POST', body });
-clearTimeout(slow);
-const [text, kind] =
-  answer.ok ? ['Saved.', 'success'] : ['Saving failed.', 'error'];
+let text = 'Saved.';
+let kind = 'success';
+try {
+  const answer = await fetch('/api/save', { method: 'POST', body });
+  if (!answer.ok) [text, kind] = ['Saving failed.', 'error'];
+} catch {
+  [text, kind] = ['The server is not reachable.', 'error'];
+} finally {
+  clearTimeout(slow); // whatever happens: a late "Still saving…" would stay up
+}
 if (saving && !saving.closed) saving.replace(text, kind);
 else toast(text, kind);
 ```
+
+Every way the work can end must reach the message: a bar holds it until its outcome,
+so a request that throws and never says so leaves it up (its cross still closes it).
 
 The package has no network code: where the updates come from is the page's business
 (`fetch`, `EventSource`, a `WebSocket`, a worker). `npm run examples` has all three of

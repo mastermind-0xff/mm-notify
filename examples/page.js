@@ -84,18 +84,25 @@ const startJob = async (ms) => {
 on('#poll', async () => {
   const { toast } = await notify();
   const job = toast('Exporting your orders…').progress(0);
-  const id = await startJob(8000);
-  // Closed by the reader: nothing more to show, stop asking.
-  while (!job.closed) {
-    const state = await (await fetch(`/api/jobs/${id}`)).json();
-    if (state.finished) {
-      job.replace(`Exported ${state.total} files.`, 'success');
-      return;
+  try {
+    const id = await startJob(8000);
+    // Closed by the reader: nothing more to show, stop asking.
+    while (!job.closed) {
+      const answer = await fetch(`/api/jobs/${id}`);
+      if (!answer.ok) throw new Error(answer.statusText);
+      const state = await answer.json();
+      if (state.finished) {
+        job.replace(`Exported ${state.total} files.`, 'success');
+        return;
+      }
+      job
+        .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
+        .progress(state.progress, `${state.done} of ${state.total} files`);
+      await wait(400);
     }
-    job
-      .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
-      .progress(state.progress, `${state.done} of ${state.total} files`);
-    await wait(400);
+  } catch {
+    // A bar waits for its outcome: a failure is one too, or the bar stays up.
+    job.replace('The export stopped. Please try again.', 'error');
   }
 });
 
@@ -114,8 +121,9 @@ on('#stream', async () => {
     source.close();
     job.progress(false).update('Deployed.', 'success', { timeoutMs: 15_000 });
   });
+  // A lost connection (it would reconnect) or a refused one (closed already): either
+  // way the outcome, or the bar would wait for good. Closed by the page, it sends none.
   source.addEventListener('error', () => {
-    if (source.readyState === EventSource.CLOSED) return;
     source.close();
     job.progress(false).update('The deploy lost its connection.', 'error');
   });
@@ -147,12 +155,18 @@ async function request(ms, fails) {
     job = toast('Still saving…', 'neutral', { announce: false });
     job.progress(true);
   }, 2000);
-  await fetch(`/api/slow?ms=${ms}`);
-  clearTimeout(slow);
-  const [text, kind] =
+  let [text, kind] =
     fails ?
       ['Saving failed. Please try again.', 'error']
     : ['Saved.', 'success'];
+  try {
+    await fetch(`/api/slow?ms=${ms}`);
+  } catch {
+    [text, kind] = ['The server is not reachable. Please try again.', 'error'];
+  } finally {
+    // Whatever happens: a "Still saving…" that comes after the answer would stay up.
+    clearTimeout(slow);
+  }
   status.textContent = text;
   // The same message becomes the outcome, read out now; a new one if there was
   // none, or if the reader closed it meanwhile.
