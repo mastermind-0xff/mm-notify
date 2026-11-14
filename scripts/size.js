@@ -22,7 +22,7 @@ const root = resolve(import.meta.dirname, '..');
 // 3500 on 2026-11-10 for the scrolling stack with its fades and the raise: the user's
 // decision ("3500 is fine"), on their "size is not crucial". 4350 on 2026-11-14 for the
 // updatable messages (aesweets D49: the handle 304 B, the progress bar and the log 556 B,
-// CSS included; 3438 -> 4290 B), raised by the agent and put to the user (plan §7 N22).
+// CSS included; 3438 -> 4302 B), raised by the agent and put to the user (plan §7 N22).
 const BUDGETS = { package: 4350, eager: 200 };
 const problems = [];
 

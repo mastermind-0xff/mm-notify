@@ -28,7 +28,7 @@ the notification"):
 - **New token** `--notify-log-height` (`8.4em`, six lines). A message is `flex-wrap: wrap`
   now (the bar and the log take a row each); nothing else changes for a message without
   them.
-- `npm run size`: 4290 B (was 3438 B), guard raised from 3500 to 4350 B by the agent, a
+- `npm run size`: 4302 B (was 3438 B), guard raised from 3500 to 4350 B by the agent, a
   question for the user.
 
 From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
