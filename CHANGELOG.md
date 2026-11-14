@@ -31,8 +31,13 @@ the notification"):
 - **New token** `--notify-log-height` (`8.4em`, six lines). A message is `flex-wrap: wrap`
   now (the bar and the log take a row each); nothing else changes for a message without
   them.
-- `npm run size`: 4302 B (was 3438 B), guard raised from 3500 to 4350 B by the agent, a
-  question for the user.
+- **Forced colors:** the progress bar and the close cross take the text's system color
+  (review: both are backgrounds, which forced colors give the page's color, so both
+  vanished; the cross did before this release too). A log's panel is a lighter veil
+  (white at 20 %), which keeps 4.5:1 on every default color (review: the darker one took
+  the error red to 4.25:1).
+- `npm run size`: 4346 B (was 3438 B; 4302 B before the review's fixes), guard raised
+  from 3500 to 4350 B by the agent, a question for the user.
 
 From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
 

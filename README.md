@@ -439,8 +439,8 @@ code would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 11247    | 4302 | 3825   |
-| `toast` alone             | 10757    | 4088 | 3633   |
+| The package, with its CSS | 11443    | 4346 | 3877   |
+| `toast` alone             | 10953    | 4132 | 3668   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
@@ -448,9 +448,11 @@ The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing
 The scrolling stack with its fades, the raise above later popovers and the `dvh` fallback
 took the package from 3049 B to 3438 B; the guard went from 3100 to 3500 B on the user's word
 ("3500 is fine", on their earlier "size is not crucial": it loads on first use). The
-changing messages took it to 4302 B (the handle about 300 B, the progress bar and the log
-about 560 B, CSS included), and the guard to 4350 B: raised by the agent, a question for
-the user (a separate entry for the bar and the log would keep the main one near 3750 B).
+changing messages took it to 4346 B (the handle about 300 B, the progress bar and the log
+about 590 B, CSS included; 44 B of that from their review: forced colors, the voice
+before the frame), and the guard to 4350 B: raised by the agent, a question for the user
+(a separate entry for the bar and the log would keep the main one near 3800 B, and cost
+about 1 KB where they are used).
 
 ## As a `file:` dependency
 
