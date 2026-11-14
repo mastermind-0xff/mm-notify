@@ -1,0 +1,462 @@
+/**
+ * The handle `toast()` returns (aesweets D49): a progress bar, a log, updates, and what
+ * happens after the reader closed the message. Then the example page's background work,
+ * against its pretend backend (examples/jobs.js), in real time.
+ */
+import { expect } from '@playwright/test';
+import { close, open, test } from './helpers.js';
+
+const UPLOAD = 'Uploading 4 of 10 files…';
+
+/** Settles every animation and transition, then measures the bar against the text. */
+const barBox = (page, text) =>
+  page.evaluate((message) => {
+    window.t.settle();
+    const item = window.t.item(message);
+    const rect = (element) => element.getBoundingClientRect();
+    const bar = item.querySelector('.mm-notify-bar');
+    const fill = getComputedStyle(bar, '::after');
+    return {
+      text: rect(item.querySelector('p')),
+      bar: rect(bar),
+      item: rect(item),
+      transform: fill.transform,
+      right: fill.right,
+      opacity: fill.opacity,
+      running: bar
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.animationName),
+    };
+  }, text);
+
+test.describe('the progress bar', () => {
+  test('sits under the text, as wide as it, filled to its value', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(async (text) => {
+      await window.t.job('upload', text, 'neutral', { timeoutMs: 0 });
+      window.t.jobs.upload.progress(0.4);
+    }, UPLOAD);
+    const bar = page.getByRole('progressbar', { name: UPLOAD });
+    await expect(bar).toBeVisible();
+    await expect(bar).toHaveAttribute('aria-valuenow', '40');
+
+    const seen = await barBox(page, UPLOAD);
+    close(seen.bar.left, seen.text.left, 1, 'left edge');
+    close(seen.bar.right, seen.text.right, 1, 'right edge');
+    expect(seen.bar.top).toBeGreaterThan(seen.text.bottom);
+    expect(seen.bar.bottom).toBeLessThan(seen.item.bottom);
+    expect(seen.bar.height).toBeGreaterThan(4);
+    expect(seen.transform).toBe('matrix(0.4, 0, 0, 1, 0, 0)');
+
+    await page.evaluate(() => window.t.jobs.upload.progress(0.7));
+    expect((await barBox(page, UPLOAD)).transform).toBe(
+      'matrix(0.7, 0, 0, 1, 0, 0)'
+    );
+    await expect(bar).toHaveAttribute('aria-valuenow', '70');
+  });
+
+  test('with no amount known, a stretch runs across it', async ({ page }) => {
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('bank', 'Waiting for the bank…', 'alert');
+      window.t.jobs.bank.progress(true);
+    });
+    const bar = page.getByRole('progressbar', {
+      name: 'Waiting for the bank…',
+    });
+    await expect(bar).toBeVisible();
+    await expect(bar).not.toHaveAttribute('aria-valuenow');
+    const running = await page.evaluate(() =>
+      window.t
+        .item('Waiting for the bank…')
+        .querySelector('.mm-notify-bar')
+        .getAnimations({ subtree: true })
+        .map((animation) => [animation.animationName, animation.playState])
+    );
+    expect(running).toEqual([['mm-notify-busy', 'running']]);
+  });
+
+  test('stands still under reduced motion, filled in a half tone', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('bank', 'Waiting for the bank…', 'alert');
+      window.t.jobs.bank.progress(true);
+    });
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    const seen = await page.evaluate(() => {
+      const bar = window.t
+        .item('Waiting for the bank…')
+        .querySelector('.mm-notify-bar');
+      const fill = getComputedStyle(bar, '::after');
+      return {
+        animations: document.getAnimations().length,
+        right: fill.right,
+        opacity: fill.opacity,
+        transform: fill.transform,
+      };
+    });
+    expect(seen).toEqual({
+      animations: 0,
+      right: '0px',
+      opacity: '0.5',
+      transform: 'none',
+    });
+    // A value moves the fill at once, with no transition.
+    await page.evaluate(() => window.t.jobs.bank.progress(0.5));
+    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  });
+
+  test('holds the message until it goes, then its time runs', async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('upload', 'Uploading…', 'success');
+      window.t.jobs.upload.progress(0.1);
+    });
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await page.clock.runFor(60_000);
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    await page.evaluate(() =>
+      window.t.jobs.upload.replace('Uploaded.', 'success')
+    );
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+    await page.clock.runFor(5400);
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+  });
+});
+
+test.describe('the log', () => {
+  const lines = (from, to) =>
+    Array.from({ length: to - from + 1 }, (_, n) => `Line ${from + n}`);
+
+  const logState = (page) =>
+    page.evaluate(() => {
+      const log = document.querySelector('.mm-notify-log');
+      const item = log.closest('.mm-notify');
+      return {
+        top: log.scrollTop,
+        atEnd: log.scrollTop + log.clientHeight >= log.scrollHeight - 1,
+        lines: log.childElementCount,
+        height: log.getBoundingClientRect().height,
+        lineHeight: parseFloat(getComputedStyle(log).lineHeight),
+        item: item.getBoundingClientRect().height,
+        max: parseFloat(
+          getComputedStyle(document.querySelector('.mm-notify-region'))
+            .maxHeight
+        ),
+      };
+    });
+
+  test('shows the newest line, scrolls inside its message, keeps the place of a reader who went up', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(
+      async (all) => {
+        await window.t.job('deploy', 'Deploying…', 'neutral', { timeoutMs: 0 });
+        for (const line of all) window.t.jobs.deploy.log(line);
+      },
+      lines(1, 30)
+    );
+    await expect(page.getByRole('log')).toBeVisible();
+    await page.evaluate(() => window.t.settle());
+    let seen = await logState(page);
+    expect(seen.atEnd).toBe(true);
+    expect(seen.lines).toBe(30);
+    // About six lines tall, whatever the number of lines: the stack stays in its 2/3.
+    expect(seen.height).toBeLessThan(seen.lineHeight * 7 + 12);
+    expect(seen.height).toBeGreaterThan(seen.lineHeight * 5);
+    expect(seen.item).toBeLessThan(seen.max);
+    await expect(page.getByText('Line 30')).toBeInViewport();
+
+    // A reader scrolls up: a new line leaves them where they are.
+    await page.evaluate(() => {
+      document.querySelector('.mm-notify-log').scrollTop = 0;
+      window.t.jobs.deploy.log('Line 31');
+    });
+    seen = await logState(page);
+    expect(seen.top).toBe(0);
+    // Back at the end: it follows again.
+    await page.evaluate(() => {
+      const log = document.querySelector('.mm-notify-log');
+      log.scrollTop = log.scrollHeight;
+      window.t.jobs.deploy.log('Line 32');
+    });
+    expect((await logState(page)).atEnd).toBe(true);
+  });
+
+  test('is reached by Tab after the close button, and holds the message while focused', async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('deploy', 'Deploying…', 'success');
+      window.t.jobs.deploy.log('Building');
+    });
+    await page.locator('.mm-notify-close').focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('log')).toBeFocused();
+    await page.clock.runFor(30_000);
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+  });
+});
+
+test('an update after the reader closed the message does nothing, and it stays closed', async ({
+  page,
+}) => {
+  await open(page);
+  await page.evaluate(async () => {
+    await window.t.job('upload', 'Uploading…', 'neutral', { timeoutMs: 0 });
+    window.t.jobs.upload.progress(0.2).log('a.txt');
+  });
+  await page.locator('.mm-notify-close').click();
+  const after = await page.evaluate(async () => {
+    const job = window.t.jobs.upload;
+    let told = false;
+    void job.whenClosed.then(() => {
+      told = true;
+    });
+    job
+      .update('Uploading 2 of 3…', 'alert')
+      .progress(0.8)
+      .log('b.txt')
+      .replace('Uploaded.', 'success');
+    job.close();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 500);
+    });
+    return { closed: job.closed, told };
+  });
+  expect(after).toEqual({ closed: true, told: true });
+  await expect(page.locator('.mm-notify')).toHaveCount(0);
+  expect(await page.evaluate(() => window.t.regionOpen())).toBe(false);
+});
+
+test('the accessibility tree: a named progress bar, a log, read out only when asked', async ({
+  page,
+  browserName,
+}) => {
+  await open(page);
+  await page.evaluate(async (text) => {
+    await window.t.job('upload', text, 'neutral', {
+      timeoutMs: 0,
+      announce: false,
+    });
+    window.t.jobs.upload.progress(0.4, '4 of 10 files').log('a.txt');
+  }, UPLOAD);
+  await expect(page.getByRole('progressbar', { name: UPLOAD })).toBeVisible();
+  await expect(page.getByRole('progressbar')).toHaveAttribute(
+    'aria-valuetext',
+    '4 of 10 files'
+  );
+  await expect(page.getByRole('log')).toHaveText('a.txt');
+  const item = page.locator('.mm-notify');
+  await expect(item).toHaveAttribute('aria-live', 'off');
+
+  if (browserName === 'chromium') {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Accessibility.enable');
+    const tree = async () =>
+      (await cdp.send('Accessibility.getFullAXTree')).nodes;
+    const property = (node, name) =>
+      node.properties?.find((p) => p.name === name)?.value.value;
+    let nodes = await tree();
+    const bar = nodes.find((node) => node.role?.value === 'progressbar');
+    expect(bar.name.value).toBe(UPLOAD);
+    expect(bar.value.value).toBe(40);
+    // CDP's valuetext stays "" here whatever the attribute: checked on the element below.
+    expect(bar.ignored).toBe(false);
+    const log = nodes.find((node) => node.role?.value === 'log');
+    expect(log.ignored).toBe(false);
+    // Active live regions only (CDP shows no "off" one): the list, nothing else.
+    const live = () =>
+      nodes.map((node) => property(node, 'live')).filter(Boolean);
+    expect(live()).toEqual(['polite']);
+
+    // The outcome, an error: read out, as an alert.
+    await page.evaluate(() =>
+      window.t.jobs.upload.replace('The upload failed.', 'error')
+    );
+    nodes = await tree();
+    expect(live().sort()).toEqual(['assertive', 'polite']);
+    expect(nodes.filter((node) => node.role?.value === 'alert')).toHaveLength(
+      1
+    );
+    expect(nodes.some((node) => node.role?.value === 'progressbar')).toBe(
+      false
+    );
+  } else {
+    await page.evaluate(() =>
+      window.t.jobs.upload.replace('The upload failed.', 'error')
+    );
+    await expect(page.getByRole('alert')).toHaveText('The upload failed.');
+  }
+  await expect(item).not.toHaveAttribute('aria-live');
+});
+
+test.describe('the example page, its pretend backend', () => {
+  test('polls an export: a bar that fills, then the outcome in its place', async ({
+    page,
+  }) => {
+    test.slow();
+    await open(page);
+    await page.locator('#poll').click();
+    const bar = page.getByRole('progressbar');
+    await expect(bar).toBeVisible();
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      /Exporting your orders: \d+ of 12 files…/
+    );
+    await expect(bar).toHaveAttribute('aria-valuetext', /\d+ of 12 files/);
+    await expect(page.locator('.mm-notify p')).toHaveText(
+      'Exported 12 files.',
+      {
+        timeout: 15_000,
+      }
+    );
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    await expect(page.locator('.mm-notify')).toHaveClass(/mm-notify-success/);
+    await expect(bar).toHaveCount(0);
+  });
+
+  test('streams a deploy: lines from an EventSource, then the outcome with its log', async ({
+    page,
+  }) => {
+    test.slow();
+    await open(page);
+    await page.locator('#stream').click();
+    await expect(page.getByRole('log')).toContainText('Resolving packages');
+    await expect(page.locator('.mm-notify p')).toHaveText('Deployed.', {
+      timeout: 15_000,
+    });
+    await expect(page.getByRole('log').locator('div')).toHaveCount(12);
+    await expect(page.locator('.mm-notify')).toHaveClass(/mm-notify-success/);
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+  });
+
+  test('a stream closed by the reader stops asking', async ({ page }) => {
+    await open(page);
+    // What the page does with its EventSource, seen from inside.
+    await page.evaluate(() => {
+      window.sources = [];
+      const { close } = EventSource.prototype;
+      EventSource.prototype.close = function () {
+        window.sources.push(this.url);
+        close.call(this);
+      };
+    });
+    await page.locator('#stream').click();
+    await expect(page.getByRole('log')).toContainText('Resolving packages');
+    await page.locator('.mm-notify-close').click();
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => window.sources))
+      .toEqual([expect.stringMatching(/\/api\/jobs\/\d+\/log$/)]);
+  });
+
+  test('a slow request: an unannounced progress message after 2 s, turned into the outcome', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.locator('#slow').click();
+    const item = page.locator('.mm-notify');
+    await expect(item.locator('p')).toHaveText('Still saving…', {
+      timeout: 5000,
+    });
+    await expect(item).toHaveAttribute('aria-live', 'off');
+    await expect(page.getByRole('progressbar')).not.toHaveAttribute(
+      'aria-valuenow'
+    );
+    await expect(item.locator('p')).toHaveText('Saved.', { timeout: 8000 });
+    await expect(item).toHaveCount(1);
+    await expect(item).not.toHaveAttribute('aria-live');
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+  });
+
+  test('a fast request shows only the outcome', async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => {
+      window.seen = [];
+      new MutationObserver(() => {
+        for (const p of document.querySelectorAll('.mm-notify p'))
+          if (!window.seen.includes(p.textContent))
+            window.seen.push(p.textContent);
+      }).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    });
+    await page.locator('#fast').click();
+    await expect(page.locator('.mm-notify p')).toHaveText('Saved.');
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => window.seen)).toEqual(['Saved.']);
+  });
+});
+
+test.describe('to look at', () => {
+  for (const [name, viewport] of [
+    ['desktop', { width: 1366, height: 800 }],
+    ['phone', { width: 390, height: 844 }],
+  ])
+    test(`bars and a log, ${name}`, async ({ page, problems }, testInfo) => {
+      // Playwright's own <style> in a WebKit screenshot, refused by the CSP (look.spec.js).
+      if (testInfo.project.name === 'webkit')
+        problems.provoked.push(
+          /Refused to apply a stylesheet|style-src-elem: inline/
+        );
+      await page.setViewportSize(viewport);
+      await open(page);
+      await page.evaluate(async () => {
+        const { t } = window;
+        await t.job('saved', 'Saved.', 'success', { timeoutMs: 0 });
+        await t.job(
+          'export',
+          'Exporting your orders: 5 of 12 files…',
+          'neutral',
+          {
+            timeoutMs: 0,
+          }
+        );
+        t.jobs.export.progress(5 / 12);
+        await t.job('bank', 'Waiting for the bank…', 'alert', { timeoutMs: 0 });
+        t.jobs.bank.progress(true);
+        await t.job('deploy', 'Deploying the release…', 'neutral', {
+          timeoutMs: 0,
+        });
+        t.jobs.deploy.progress(0.75);
+        for (let line = 1; line <= 9; line += 1)
+          t.jobs.deploy.log(`12:00:0${line}  Step ${line} of the deploy`);
+        await t.job(
+          'failed',
+          'The upload failed: the file is too large.',
+          'error',
+          {
+            timeoutMs: 0,
+          }
+        );
+        t.jobs.failed.progress(0.3);
+      });
+      await expect(page.locator('.mm-notify')).toHaveCount(5);
+      await page.evaluate(() => {
+        window.t.settleMessages();
+        // The running stretch, held where it shows.
+        for (const animation of document.getAnimations())
+          if (animation.animationName === 'mm-notify-busy') {
+            animation.pause();
+            animation.currentTime = 600;
+          }
+      });
+      await page.waitForTimeout(400);
+      await page.screenshot({
+        path: `test-results/look/${testInfo.project.name}-progress-${name}.png`,
+      });
+    });
+});

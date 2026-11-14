@@ -11,6 +11,14 @@ window.t = {
     (await this.load()).toast(text, kind, options);
   },
 
+  /** The handles of messages shown with `job`, by a name of the test's. */
+  jobs: {},
+
+  /** Shows a message and keeps its handle as `jobs[name]`. */
+  async job(name, text, kind, options) {
+    this.jobs[name] = (await this.load()).toast(text, kind, options);
+  },
+
   async configure(options) {
     (await this.load()).configure(options);
   },
