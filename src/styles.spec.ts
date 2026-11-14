@@ -109,6 +109,12 @@ describe('notify.css', () => {
   const rule = (selector: string): string =>
     code.split(`${selector} {`)[1]?.split('}')[0] ?? '';
 
+  /** The rule of this selector alone, not one it shares with another. */
+  const own = (selector: string): string =>
+    new RegExp(
+      `\\}\\s*${selector.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)`
+    ).exec(code)?.[1] ?? '';
+
   it('prefixes every class and keyframe', () => {
     const classes = [...code.matchAll(/\.([a-z][\w-]*)/gi)]
       .map((match) => match[1]!)
@@ -237,8 +243,42 @@ describe('notify.css', () => {
 
   it('never animates for those who asked not to', () => {
     expect(code).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify\.mm-notify-out,\s*\.mm-notify\.mm-notify-out > \*,\s*\.mm-notify-list,\s*\.mm-notify-clear \{\s*animation: none;\s*transition: none;/
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\.mm-notify,\s*\.mm-notify\.mm-notify-out,\s*\.mm-notify\.mm-notify-out > \*,\s*\.mm-notify-list,\s*\.mm-notify-clear,\s*\.mm-notify-bar::after \{\s*animation: none;\s*transition: none;/
     );
+  });
+
+  it('keeps a bar of unknown amount still for them, filled in a half tone', () => {
+    const media = code.slice(code.indexOf('@media (prefers-reduced-motion'));
+    expect(media).toMatch(
+      /\.mm-notify-bar:not\(\[aria-valuenow\]\)::after \{\s*right: 0;\s*opacity: 0\.5;\s*transform: none;/
+    );
+  });
+
+  it('draws the progress bar in the text color, its value from toast.ts', () => {
+    expect(own('.mm-notify-bar::after')).toContain(
+      'transform: scaleX(var(--mm-notify-value, 0));'
+    );
+    expect(code).toMatch(
+      /\.mm-notify-bar::before,\s*\.mm-notify-bar::after \{[^}]*background: currentColor;/
+    );
+    // No value: the amount is unknown, a stretch runs across.
+    expect(rule('.mm-notify-bar:not([aria-valuenow])::after')).toContain(
+      'animation: mm-notify-busy'
+    );
+  });
+
+  it('gives the bar and the log a row of their own, under the text', () => {
+    expect(rule('.mm-notify')).toContain('flex-wrap: wrap;');
+    expect(code).toMatch(
+      /\.mm-notify-bar,\s*\.mm-notify-log \{\s*flex: 1 1 100%;\s*margin: 0 2\.75rem 0 2rem;/
+    );
+  });
+
+  it('lets the log scroll inside its message, about six lines tall', () => {
+    const log = own('.mm-notify-log');
+    expect(log).toContain('max-height: var(--notify-log-height, 8.4em);');
+    expect(log).toContain('overflow-y: auto;');
+    expect(log).toContain('white-space: pre-wrap;');
   });
 
   it('closes the box in 0.3 s and its children in 0.1 s', () => {

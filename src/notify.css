@@ -152,6 +152,7 @@
   box-sizing: content-box; /* the height it grows to is the content's, whatever the site's */
   display: flex;
   flex: none;
+  flex-wrap: wrap; /* a progress bar or a log takes a row of its own */
   align-items: flex-start;
   gap: 0.75rem;
   margin-bottom: 0.625rem;
@@ -240,6 +241,67 @@
   transform: rotate(-45deg);
 }
 
+/* A progress bar and a log (toast.ts `progress`, `log`): a row each under the text,
+   as wide as the text. In the text's color: dark on the bright boxes. */
+.mm-notify-bar,
+.mm-notify-log {
+  flex: 1 1 100%;
+  margin: 0 2.75rem 0 2rem;
+}
+
+.mm-notify-bar {
+  position: relative;
+  height: 0.375rem;
+  overflow: hidden;
+  border-radius: 0.1875rem;
+}
+
+.mm-notify-bar::before,
+.mm-notify-bar::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+}
+
+.mm-notify-bar::before {
+  opacity: 0.2;
+}
+
+.mm-notify-bar::after {
+  transform: scaleX(var(--mm-notify-value, 0));
+  transform-origin: 0;
+  transition: transform 0.3s ease-out;
+}
+
+/* No amount known: a stretch of the bar runs across it. */
+.mm-notify-bar:not([aria-valuenow])::after {
+  right: 60%;
+  animation: mm-notify-busy 1.5s ease-in-out infinite;
+}
+
+@keyframes mm-notify-busy {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* Console-like: the newest line at the bottom, about six in sight, then it scrolls. */
+.mm-notify-log {
+  max-height: var(--notify-log-height, 8.4em);
+  padding: 0.25rem 0.5rem;
+  overflow-y: auto;
+  font: 0.8125em/1.4 var(--notify-log-font, ui-monospace, Consolas, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--notify-log, rgb(0 0 0 / 0.08));
+  border-radius: 4px;
+}
+
 /* The closing: toast.ts starts it from what the box is now, and removes the message
    just after these 0.3s. All on one curve, so they reach 0 together. The opacity is for
    the glow, which a box of no height still casts. */
@@ -280,8 +342,16 @@
   .mm-notify.mm-notify-out,
   .mm-notify.mm-notify-out > *,
   .mm-notify-list,
-  .mm-notify-clear {
+  .mm-notify-clear,
+  .mm-notify-bar::after {
     animation: none;
     transition: none;
+  }
+
+  /* No amount known: the bar stands still, half filled in tone. */
+  .mm-notify-bar:not([aria-valuenow])::after {
+    right: 0;
+    opacity: 0.5;
+    transform: none;
   }
 }

@@ -490,6 +490,8 @@ export function toast(
     list.prepend(item); // the start of the stack, where `--notify-flow` puts it
     // What it grows to, moving the stack smoothly: CSS can't animate to `auto`.
     item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
+    // Lines logged before it was on the page: the newest in sight.
+    if (lines) lines.scrollTop = lines.scrollHeight;
     // A glow falls downwards, so the lower message must paint over the upper. Prepending
     // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
     if (reversed()) item.style.zIndex = String(++depth);

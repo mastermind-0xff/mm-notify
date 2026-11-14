@@ -1886,6 +1886,14 @@ describe('handle.log', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows the newest of the lines logged before its frame', () => {
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(300);
+    toast('Deploying…').log('1').log('2').log('3');
+    nextFrame();
+    expect(log().scrollTop).toBe(300);
+    vi.restoreAllMocks();
+  });
+
   it('starts the time over with every line', () => {
     const job = toast('Deploying…', 'success');
     nextFrame();
