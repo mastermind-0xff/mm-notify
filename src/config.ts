@@ -13,7 +13,10 @@ export interface NotifyConfig {
   readonly durations?: Readonly<Partial<Record<ToastKind, number>>>;
   /** Off when the page loads `@mmutils/notify/notify.css` itself. */
   readonly injectCss?: boolean;
-  /** How many lines a message's log keeps (`log()`); older ones are dropped. */
+  /**
+   * How many lines a message's log keeps (`log()`), at least 1; older ones are
+   * dropped. `Infinity` keeps them all.
+   */
   readonly logLines?: number;
   /**
    * Whether a message whose kind and text equal one still on screen shows as a

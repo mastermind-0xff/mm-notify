@@ -1873,6 +1873,17 @@ describe('handle.log', () => {
     expect(rows()).toEqual(['Line 3', 'Line 4', 'Line 5']);
   });
 
+  it.each([0, -1])(
+    'keeps the newest line with logLines %d: never an empty log, never a hang',
+    (logLines) => {
+      // Review 2026-11-14: 0 emptied the log, below 0 the trimming never stopped.
+      configure({ logLines });
+      toast('Deploying…').log('Line 1').log('Line 2');
+      nextFrame();
+      expect(rows()).toEqual(['Line 2']);
+    }
+  );
+
   it('keeps 100 lines by default', () => {
     const job = toast('Deploying…');
     for (let line = 1; line <= 150; line += 1) job.log(`Line ${String(line)}`);

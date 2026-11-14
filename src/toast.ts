@@ -460,7 +460,8 @@ export function toast(
       const row = document.createElement('div');
       row.textContent = line;
       lines.append(row);
-      while (lines.childElementCount > config.logLines)
+      // At least the newest: 0 or less would empty it, and below 0 never stop.
+      while (lines.childElementCount > Math.max(1, config.logLines))
         lines.firstElementChild?.remove();
       if (atEnd) lines.scrollTop = lines.scrollHeight;
       return changed();

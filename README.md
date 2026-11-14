@@ -292,7 +292,7 @@ export { flash, showFlash, toast } from '@mmutils/notify';
 | `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.       |
 | `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.    |
 | `sequential`    | `false`             | One timer at a time, see below.                                   |
-| `logLines`      | `100`               | How many lines a message's log keeps (`log()`); older ones go.    |
+| `logLines`      | `100`               | How many lines a message's log keeps (`log()`), at least 1.       |
 | `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".        |
 
 **`sequential`:** normally every message counts down at once. With `true` one timer

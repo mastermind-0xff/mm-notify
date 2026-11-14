@@ -10,7 +10,8 @@ the notification"):
   log; `replace(text, kind?, options?)` changes everything, as `toast()` would show it, in
   place; `progress(value, text?)` shows a progress bar (0 to 1, `true` for an unknown
   amount, `false` to remove it); `log(line)` adds a console-like line (the newest in sight,
-  scrolling inside the message, `configure({ logLines })` kept, 100 by default);
+  scrolling inside the message, `configure({ logLines })` kept, 100 by default, at least
+  1: review, 0 emptied the log and a negative number hung the page);
   `close()`; `closed`; `whenClosed`, a promise. An empty text returns a closed handle.
 - **The time:** while a bar shows the message doesn't time out; every other change starts
   its time over. `update` keeps the time unless the kind changes (that kind's default) or
