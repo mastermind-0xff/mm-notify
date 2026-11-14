@@ -1,12 +1,14 @@
 /**
  * The example page (`npm run examples`): serves the page, the built package
- * (dist) and its sources (for the source maps). With a strict CSP, so the page
+ * (dist) and its sources (for the source maps), and a pretend backend for the
+ * background-work examples (jobs.js). With a strict CSP, so the page
  * also shows that the package needs no inline styles and passes Trusted Types.
  * Development only: listens on 127.0.0.1.
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
+import { api } from './jobs.js';
 
 const root = resolve(import.meta.dirname, '..');
 const port = Number(process.env.PORT ?? 5179);
@@ -41,6 +43,8 @@ const server = createServer(async (req, res) => {
     res.writeHead(302, { location: '/examples/' });
     return res.end();
   }
+  // The pretend backend the background-work examples talk to.
+  if (api(req, res, url)) return;
   let path;
   try {
     path = decodeURIComponent(url.pathname);

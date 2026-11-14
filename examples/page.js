@@ -60,6 +60,110 @@ document.querySelector('#twice').addEventListener('click', () => {
   }, 800);
 });
 
+// Work in the background: the handle `toast()` returns. The server pretends to work
+// (examples/jobs.js); the package itself has no network code.
+const wait = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const on = (selector, run) => {
+  document.querySelector(selector).addEventListener('click', () => {
+    void run().catch((error) => {
+      show(`The example failed: ${error.message}`, 'error');
+    });
+  });
+};
+
+const startJob = async (ms) => {
+  const answer = await fetch(`/api/jobs?ms=${ms}`, { method: 'POST' });
+  return (await answer.json()).id;
+};
+
+// A progress bar, polled: the bar holds the message until the outcome replaces it.
+on('#poll', async () => {
+  const { toast } = await notify();
+  const job = toast('Exporting your orders…').progress(0);
+  const id = await startJob(8000);
+  // Closed by the reader: nothing more to show, stop asking.
+  while (!job.closed) {
+    const state = await (await fetch(`/api/jobs/${id}`)).json();
+    if (state.finished) {
+      job.replace(`Exported ${state.total} files.`, 'success');
+      return;
+    }
+    job
+      .update(`Exporting your orders: ${state.done} of ${state.total} files…`)
+      .progress(state.progress, `${state.done} of ${state.total} files`);
+    await wait(400);
+  }
+});
+
+// Console-like lines, pushed by the server. The log stays with the outcome.
+on('#stream', async () => {
+  const { toast } = await notify();
+  const job = toast('Deploying the release…').progress(true);
+  const source = new EventSource(`/api/jobs/${await startJob(6000)}/log`);
+  void job.whenClosed.then(() => {
+    source.close();
+  });
+  source.addEventListener('message', (event) => {
+    job.log(event.data);
+  });
+  source.addEventListener('done', () => {
+    source.close();
+    job.progress(false).update('Deployed.', 'success', { timeoutMs: 15_000 });
+  });
+  source.addEventListener('error', () => {
+    if (source.readyState === EventSource.CLOSED) return;
+    source.close();
+    job.progress(false).update('The deploy lost its connection.', 'error');
+  });
+});
+
+// Words that change step by step, silently, then a new kind, read out.
+on('#steps', async () => {
+  const { toast } = await notify();
+  const job = toast('Step 1 of 3: checking your VAT number…', 'neutral', {
+    timeoutMs: 0,
+  });
+  await wait(1500);
+  job.update('Step 2 of 3: saving your address…');
+  await wait(1500);
+  job.update('Step 3 of 3: sending the invoice…');
+  await wait(1500);
+  job.update('Your invoice is on its way.', 'success');
+});
+
+// The aesweets D49 pattern: a progress message only past 2 s, then the outcome.
+const status = document.querySelector('#status');
+
+async function request(ms, fails) {
+  status.textContent = 'Saving…';
+  const { toast } = await notify();
+  let job;
+  const slow = setTimeout(() => {
+    // The status line says "Saving…" already: not read out twice.
+    job = toast('Still saving…', 'neutral', { announce: false });
+    job.progress(true);
+  }, 2000);
+  await fetch(`/api/slow?ms=${ms}`);
+  clearTimeout(slow);
+  const [text, kind] =
+    fails ?
+      ['Saving failed. Please try again.', 'error']
+    : ['Saved.', 'success'];
+  status.textContent = text;
+  // The same message becomes the outcome, read out now; a new one if there was
+  // none, or if the reader closed it meanwhile.
+  if (job && !job.closed) job.replace(text, kind);
+  else toast(text, kind);
+}
+
+on('#slow', () => request(4000, false));
+on('#fast', () => request(500, false));
+on('#failing', () => request(4000, true));
+
 // A site sets this once, before the first message: here to try both.
 document.querySelector('#repeats').addEventListener('change', (event) => {
   void notify().then(({ configure }) => {

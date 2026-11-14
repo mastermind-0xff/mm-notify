@@ -70,6 +70,38 @@
       </section>
 
       <section>
+        <h2>Work in the background</h2>
+        <p>
+          <code>toast()</code> returns a handle that changes the message while
+          it is up. The server behind this page pretends to work
+          (<code>examples/jobs.js</code>); the package has no network code.
+          Close a message while its work goes on: later updates do nothing, and
+          the page stops asking.
+        </p>
+        <div class="row">
+          <button type="button" id="poll">Export, polled with fetch</button>
+          <button type="button" id="stream">
+            Deploy, lines from an EventSource
+          </button>
+          <button type="button" id="steps">
+            Three steps, then the outcome
+          </button>
+        </div>
+        <p>
+          A request that may be slow: a progress message only once it takes
+          longer than 2 s, not read out (the status line by the buttons shows
+          it), and that message becomes the outcome, read out. A fast one shows
+          only the outcome.
+        </p>
+        <div class="row">
+          <button type="button" id="slow">A slow request (4 s)</button>
+          <button type="button" id="fast">A fast request (0.5 s)</button>
+          <button type="button" id="failing">A slow request that fails</button>
+          <span id="status"></span>
+        </div>
+      </section>
+
+      <section>
         <h2>Behavior to try</h2>
         <ul>
           <li>
