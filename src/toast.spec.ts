@@ -1492,3 +1492,496 @@ describe('showFlash', () => {
     });
   });
 });
+
+// The answer to aesweets D49 (2026-11-14): "It should be possible to update the notification."
+describe('the handle toast returns', () => {
+  it('has the methods and is open while the message is up', () => {
+    const job = toast('Saving…');
+    expect(job.closed).toBe(false);
+    expect(job.update('Still saving…')).toBe(job);
+    expect(job.replace('Saving again…')).toBe(job);
+    expect(job.progress(0.5)).toBe(job);
+    expect(job.log('A line')).toBe(job);
+    expect(job.whenClosed).toBeInstanceOf(Promise);
+  });
+
+  it('is closed from the start for an empty text, and does nothing', async () => {
+    const job = toast('');
+    expect(job.closed).toBe(true);
+    await expect(job.whenClosed).resolves.toBeUndefined();
+    job.update('Hello', 'error').replace('Hi').progress(0.5).log('Line');
+    job.close();
+    nextFrame();
+    expect(region()).toBeNull();
+  });
+
+  it('is the one on screen for a repeat that shows no message of its own', () => {
+    const first = toast('Saving…');
+    nextFrame();
+    expect(toast('Saving…')).toBe(first);
+    expect(texts()).toEqual(['Saving…']);
+  });
+
+  it('is its own for every message with repeats', () => {
+    configure({ repeats: true });
+    const first = toast('Saving…');
+    expect(toast('Saving…')).not.toBe(first);
+  });
+});
+
+describe('handle.update', () => {
+  const pathOf = (item: HTMLElement): string | null =>
+    item.querySelector('path')!.getAttribute('d');
+
+  it('changes the words in place, keeping the kind', () => {
+    const job = toast('Saving…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const item = items()[0]!;
+    job.update('Saving 2 of 3…');
+    expect(items()).toEqual([item]);
+    expect(texts()).toEqual(['Saving 2 of 3…']);
+    expect(item.className).toBe('mm-notify mm-notify-neutral');
+  });
+
+  it('changes the kind: class, icon and role', () => {
+    const icons = Object.fromEntries(
+      KINDS.map((kind) => {
+        toast(`Icon ${kind}`, kind);
+        nextFrame();
+        return [kind, pathOf(showing().at(-1)!)];
+      })
+    );
+    const job = toast('Saving…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const item = showing().at(-1)!;
+    job.update('Saving failed.', 'error');
+    expect(item.className).toBe('mm-notify mm-notify-error');
+    expect(pathOf(item)).toBe(icons['error']);
+    expect(item.getAttribute('role')).toBe('alert');
+    job.update('Saved after all.', 'success');
+    expect(item.className).toBe('mm-notify mm-notify-success');
+    expect(pathOf(item)).toBe(icons['success']);
+    expect(item.hasAttribute('role')).toBe(false);
+  });
+
+  it('keeps the words for an empty text', () => {
+    const job = toast('Taking long', 'neutral');
+    nextFrame();
+    job.update('', 'alert');
+    expect(texts()).toEqual(['Taking long']);
+    expect(items()[0]!.classList).toContain('mm-notify-alert');
+  });
+
+  it('keeps the progress bar and the log', () => {
+    const job = toast('Uploading…').progress(0.2).log('a.txt');
+    nextFrame();
+    job.update('Uploading 2 of 5…', 'alert');
+    const item = items()[0]!;
+    expect(item.querySelector('.mm-notify-bar')).not.toBeNull();
+    expect(item.querySelector('.mm-notify-log')!.textContent).toBe('a.txt');
+  });
+
+  it('starts the same time over when the kind stays', () => {
+    const job = toast('Saved', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4000);
+    job.update('Saved twice');
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Saved twice']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('keeps a message that stays until closed so, when the kind stays', () => {
+    const job = toast('Working…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    job.update('Still working…');
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Still working…']);
+  });
+
+  it('takes the default time of a new kind, as toast would', () => {
+    const job = toast('Saving…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    job.update('Saved.', 'success');
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Saved.']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('takes timeoutMs over both', () => {
+    const job = toast('Saving…', 'neutral');
+    nextFrame();
+    job.update('Saved.', 'success', { timeoutMs: 0 });
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Saved.']);
+    job.update('Saved.', 'success', { timeoutMs: 100 });
+    vi.advanceTimersByTime(100);
+    expect(texts()).toEqual([]);
+  });
+
+  it('is silent for new words of the same kind, unless asked', () => {
+    const job = toast('Uploading…', 'neutral');
+    nextFrame();
+    const item = items()[0]!;
+    const node = item.querySelector('p')!.firstChild;
+    job.update('Uploading 2 of 5…');
+    expect(item.getAttribute('aria-live')).toBe('off');
+    job.update('Uploading 3 of 5…', 'neutral', { announce: true });
+    expect(item.hasAttribute('aria-live')).toBe(false);
+    // A new text node: what a live region reads.
+    expect(item.querySelector('p')!.firstChild).not.toBe(node);
+  });
+
+  it('is read out when the kind changes, unless told not to', () => {
+    const job = toast('Saving…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    expect(item.getAttribute('aria-live')).toBe('off');
+    job.update('Saving failed.', 'error', { announce: false });
+    expect(item.getAttribute('aria-live')).toBe('off');
+    expect(item.hasAttribute('role')).toBe(false);
+    job.update('Saved.', 'success');
+    expect(item.hasAttribute('aria-live')).toBe(false);
+  });
+
+  it('merges with no other message: both show, a later repeat goes to the oldest', () => {
+    const done = toast('Saved.', 'success');
+    const job = toast('Saving…', 'neutral');
+    nextFrame();
+    job.update('Saved.', 'success');
+    expect(texts()).toEqual(['Saved.', 'Saved.']);
+    expect(toast('Saved.', 'success')).toBe(done);
+    expect(showing()).toHaveLength(2);
+  });
+
+  it('is what a repeat compares: the words and kind it has now', () => {
+    const job = toast('Saving…', 'neutral');
+    nextFrame();
+    job.update('Saved.', 'success');
+    expect(toast('Saved.', 'success')).toBe(job);
+    expect(toast('Saving…', 'neutral')).not.toBe(job);
+    nextFrame();
+    expect(texts()).toEqual(['Saved.', 'Saving…']);
+  });
+
+  it('keeps the close label, unless given another', () => {
+    const job = toast('Hi', 'neutral', { closeLabel: 'Dismiss' });
+    nextFrame();
+    const button = items()[0]!.querySelector('button')!;
+    job.update('Hello');
+    expect(button.getAttribute('aria-label')).toBe('Dismiss');
+    job.update('Hey', 'neutral', { closeLabel: 'Fermer' });
+    expect(button.getAttribute('aria-label')).toBe('Fermer');
+  });
+
+  it('works before the frame, which shows the new words', () => {
+    toast('First', 'neutral').update('Second', 'success');
+    nextFrame();
+    expect(texts()).toEqual(['Second']);
+    expect(items()[0]!.classList).toContain('mm-notify-success');
+  });
+
+  it('tells a message still growing the height it grows to now', () => {
+    const job = toast('One line');
+    nextFrame();
+    const item = items()[0]!;
+    vi.spyOn(item, 'scrollHeight', 'get').mockReturnValue(120);
+    job.log('A line that makes it taller');
+    expect(item.style.getPropertyValue('--mm-notify-height')).toBe('120px');
+    vi.restoreAllMocks();
+  });
+});
+
+describe('handle.replace', () => {
+  it('changes everything: words, kind, no bar, no log, read out', () => {
+    const job = toast('Uploading…', 'neutral', { announce: false })
+      .progress(0.5)
+      .log('a.txt');
+    nextFrame();
+    job.replace('Uploaded.', 'success');
+    const item = items()[0]!;
+    expect(texts()).toEqual(['Uploaded.']);
+    expect(item.className).toBe('mm-notify mm-notify-success');
+    expect(item.querySelector('.mm-notify-bar, .mm-notify-log')).toBeNull();
+    expect(item.hasAttribute('aria-live')).toBe(false);
+  });
+
+  it('keeps the kind when not given, and takes its default time', () => {
+    const job = toast('Working…', 'alert', { timeoutMs: 0 });
+    nextFrame();
+    job.replace('Done, with warnings.');
+    expect(items()[0]!.classList).toContain('mm-notify-alert');
+    vi.advanceTimersByTime(7999);
+    expect(texts()).toEqual(['Done, with warnings.']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('takes timeoutMs and announce: false, as toast does', () => {
+    const job = toast('Working…', 'neutral');
+    nextFrame();
+    job.replace('Failed.', 'error', { timeoutMs: 0, announce: false });
+    const item = items()[0]!;
+    expect(item.getAttribute('aria-live')).toBe('off');
+    expect(item.hasAttribute('role')).toBe(false);
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Failed.']);
+  });
+});
+
+describe('handle.progress', () => {
+  const bar = (): HTMLElement | null =>
+    items()[0]!.querySelector('.mm-notify-bar');
+
+  it('shows a progress bar with its value, named by the text', () => {
+    toast('Uploading…').progress(0.4);
+    nextFrame();
+    expect(bar()!.getAttribute('role')).toBe('progressbar');
+    expect(bar()!.getAttribute('aria-valuenow')).toBe('40');
+    expect(bar()!.style.getPropertyValue('--mm-notify-value')).toBe('0.4');
+    const name = document.getElementById(
+      bar()!.getAttribute('aria-labelledby')!
+    );
+    expect(name).toBe(items()[0]!.querySelector('p'));
+    // Nothing to read out when it is added: no text of its own.
+    expect(bar()!.textContent).toBe('');
+  });
+
+  it('keeps the value between 0 and 1', () => {
+    const job = toast('Uploading…');
+    nextFrame();
+    const values = [-1, 2, Number.NaN, 0.123].map((value) => {
+      job.progress(value);
+      return bar()!.getAttribute('aria-valuenow');
+    });
+    expect(values).toEqual(['0', '100', '0', '12']);
+  });
+
+  it('has no value while the amount is unknown, and one bar however often asked', () => {
+    const job = toast('Waiting for the bank…').progress(true);
+    nextFrame();
+    expect(bar()!.hasAttribute('aria-valuenow')).toBe(false);
+    job.progress(0.7).progress(true);
+    expect(items()[0]!.querySelectorAll('.mm-notify-bar')).toHaveLength(1);
+    expect(bar()!.hasAttribute('aria-valuenow')).toBe(false);
+  });
+
+  it('takes a text for the value, for screen readers', () => {
+    const job = toast('Uploading…').progress(0.3, '3 of 10 files');
+    nextFrame();
+    expect(bar()!.getAttribute('aria-valuetext')).toBe('3 of 10 files');
+    job.progress(0.4);
+    expect(bar()!.hasAttribute('aria-valuetext')).toBe(false);
+  });
+
+  it('goes with false', () => {
+    const job = toast('Uploading…').progress(0.4);
+    nextFrame();
+    job.progress(false);
+    expect(bar()).toBeNull();
+  });
+
+  it('holds the time while it shows, and starts it over in full when it goes', () => {
+    const job = toast('Uploading…', 'success').progress(true);
+    nextFrame();
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Uploading…']);
+    job.progress(false);
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Uploading…']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+
+  it('sits under the text, above a log', () => {
+    toast('Building…').log('step 1').progress(0.1);
+    nextFrame();
+    expect(
+      [...items()[0]!.children].map((child) => child.tagName.toLowerCase())
+    ).toEqual(['svg', 'p', 'button', 'div', 'div']);
+    expect(items()[0]!.children[3]!.className).toBe('mm-notify-bar');
+  });
+
+  it('names each bar by its own message', () => {
+    toast('One').progress(0.1);
+    toast('Two').progress(0.2);
+    nextFrame();
+    const names = items().map((item) =>
+      item.querySelector('.mm-notify-bar')!.getAttribute('aria-labelledby')
+    );
+    expect(new Set(names).size).toBe(2);
+  });
+
+  it('holds those behind it in sequential mode, like a message that stays', () => {
+    configure({ sequential: true });
+    const job = toast('Uploading…', 'neutral').progress(true);
+    toast('Saved.', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(60_000);
+    expect(texts()).toEqual(['Uploading…', 'Saved.']);
+    job.replace('Uploaded.', 'success');
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual(['Saved.']);
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual([]);
+  });
+});
+
+describe('handle.log', () => {
+  const log = (): HTMLElement => items()[0]!.querySelector('.mm-notify-log')!;
+  const rows = (): (string | null)[] =>
+    [...log().children].map((row) => row.textContent);
+
+  it('adds lines, newest last, as plain text', () => {
+    toast('Deploying…', 'neutral', { timeoutMs: 0 })
+      .log('Building')
+      .log('<img src=x>');
+    nextFrame();
+    expect(rows()).toEqual(['Building', '<img src=x>']);
+    expect(log().querySelector('img')).toBeNull();
+  });
+
+  it('is a log that is not read out, and a keyboard can scroll it', () => {
+    toast('Deploying…').log('Building');
+    nextFrame();
+    expect(log().getAttribute('role')).toBe('log');
+    expect(log().getAttribute('aria-live')).toBe('off');
+    expect(log().tabIndex).toBe(0);
+  });
+
+  it('keeps the last lines only', () => {
+    configure({ logLines: 3 });
+    const job = toast('Deploying…');
+    for (let line = 1; line <= 5; line += 1) job.log(`Line ${String(line)}`);
+    nextFrame();
+    expect(rows()).toEqual(['Line 3', 'Line 4', 'Line 5']);
+  });
+
+  it('keeps 100 lines by default', () => {
+    const job = toast('Deploying…');
+    for (let line = 1; line <= 150; line += 1) job.log(`Line ${String(line)}`);
+    nextFrame();
+    expect(rows()).toHaveLength(100);
+    expect(rows()[0]).toBe('Line 51');
+  });
+
+  it('stays at its end for the newest line, unless the reader scrolled up', () => {
+    // Each line 20 px in a box 50 px tall.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(50);
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
+      function (this: Element) {
+        return 20 * this.childElementCount;
+      }
+    );
+    const job = toast('Deploying…').log('1').log('2').log('3');
+    nextFrame();
+    log().scrollTop = 10; // at the end
+    job.log('4');
+    expect(log().scrollTop).toBe(80);
+    log().scrollTop = 5; // the reader went up
+    job.log('5');
+    expect(log().scrollTop).toBe(5);
+    vi.restoreAllMocks();
+  });
+
+  it('starts the time over with every line', () => {
+    const job = toast('Deploying…', 'success');
+    nextFrame();
+    vi.advanceTimersByTime(4000);
+    job.log('Still going');
+    vi.advanceTimersByTime(4999);
+    expect(texts()).toEqual(['Deploying…']);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual([]);
+  });
+});
+
+describe('handle.close, closed and whenClosed', () => {
+  it('closes as the cross does', async () => {
+    const job = toast('Working…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    job.close();
+    expect(items()[0]!.classList).toContain('mm-notify-out');
+    expect(job.closed).toBe(true);
+    await expect(job.whenClosed).resolves.toBeUndefined();
+    vi.advanceTimersByTime(350);
+    expect(items()).toEqual([]);
+    expect(isOpen(region())).toBe(false);
+  });
+
+  it.each([
+    [
+      'its cross',
+      () => {
+        closeButton('Working…').click();
+      },
+    ],
+    [
+      'Clear all',
+      () => {
+        clearAll().click();
+      },
+    ],
+    [
+      'its time',
+      () => {
+        vi.advanceTimersByTime(5000);
+      },
+    ],
+  ])('knows it closed by %s', async (_, how) => {
+    configure({ clearAllFrom: 1 });
+    const job = toast('Working…');
+    nextFrame();
+    let told = false;
+    void job.whenClosed.then(() => {
+      told = true;
+    });
+    how();
+    await Promise.resolve();
+    expect(job.closed).toBe(true);
+    expect(told).toBe(true);
+  });
+
+  it('does nothing once closed: no update, no bar, no line, no coming back', () => {
+    const job = toast('Working…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    closeButton('Working…').click();
+    const item = items()[0]!;
+    const before = item.outerHTML;
+    expect(() => {
+      job.update('Done.', 'success').replace('Done!').progress(1).log('Line');
+      job.close();
+    }).not.toThrow();
+    expect(item.outerHTML).toBe(before);
+    vi.advanceTimersByTime(350);
+    expect(items()).toEqual([]);
+  });
+
+  it('is no repeat target once closed: the same text shows again', () => {
+    const job = toast('Saved.', 'success');
+    nextFrame();
+    job.close();
+    expect(toast('Saved.', 'success')).not.toBe(job);
+    nextFrame();
+    expect(texts()).toEqual(['Saved.']);
+  });
+
+  it('never shows when closed before its frame', async () => {
+    const job = toast('Quick');
+    job.close();
+    nextFrame();
+    expect(items()).toEqual([]);
+    await expect(job.whenClosed).resolves.toBeUndefined();
+  });
+
+  it('is closed when its region left the page', async () => {
+    const job = toast('Gone with the page', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    region().remove();
+    toast('A new page');
+    expect(job.closed).toBe(true);
+    await expect(job.whenClosed).resolves.toBeUndefined();
+  });
+});

@@ -13,6 +13,8 @@ export interface NotifyConfig {
   readonly durations?: Readonly<Partial<Record<ToastKind, number>>>;
   /** Off when the page loads `@mmutils/notify/notify.css` itself. */
   readonly injectCss?: boolean;
+  /** How many lines a message's log keeps (`log()`); older ones are dropped. */
+  readonly logLines?: number;
   /**
    * Whether a message whose kind and text equal one still on screen shows as a
    * new message. Off: the one on screen starts over, with the longer of the two
@@ -38,6 +40,7 @@ export const config = {
     error: 10_000,
   } as Record<ToastKind, number>,
   injectCss: true,
+  logLines: 100,
   repeats: false,
   sequential: false,
 };

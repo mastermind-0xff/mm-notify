@@ -19,6 +19,47 @@ export interface ToastOptions {
   readonly closeLabel?: string;
 }
 
+/**
+ * The message `toast()` showed, to change while it is on screen: work in the
+ * background, its progress, its outcome. Once the message is closed (by its cross,
+ * its time, Clear all or `close()`), every method does nothing: a message someone
+ * closed doesn't come back. Each method but `close` returns the handle, to chain.
+ */
+export interface ToastHandle {
+  /**
+   * New words, and a new kind if given; the progress bar and the log stay. The
+   * time starts over: the same, unless `timeoutMs` or a new kind (then its default)
+   * says otherwise. Read out when the kind changes or with `announce: true`; new
+   * words of the same kind are silent by default. An empty text keeps the words.
+   */
+  update(text: string, kind?: ToastKind, options?: ToastOptions): ToastHandle;
+  /**
+   * New contents altogether, as `toast(text, kind, options)` would show them, in
+   * place: no progress bar, no log, the kind's time (or `timeoutMs`), read out
+   * unless `announce: false`. The kind stays when not given.
+   */
+  replace(text: string, kind?: ToastKind, options?: ToastOptions): ToastHandle;
+  /**
+   * A progress bar under the text: a number from 0 to 1, `true` while the amount
+   * is unknown, `false` to remove it. While it shows, the message's time doesn't
+   * run: it waits for the outcome. `text` is what screen readers say for the
+   * value (`aria-valuetext`), "3 of 10 files"; by default the percentage.
+   */
+  progress(value: number | boolean, text?: string): ToastHandle;
+  /**
+   * Adds a line to a log under the text, console-like: the newest at the bottom,
+   * in sight unless the reader scrolled up, at most `configure({ logLines })`
+   * kept. Not read out. The time starts over.
+   */
+  log(line: string): ToastHandle;
+  /** Closes the message, as its cross does. */
+  close(): void;
+  /** Whether the message is closed (or never showed: an empty text). */
+  readonly closed: boolean;
+  /** Fulfilled when the message closes, for whatever reason. */
+  readonly whenClosed: Promise<void>;
+}
+
 /** Also in has-flash.ts, which must import nothing. */
 const FLASH_KEY = 'mm-notify.flash';
 const OUT = 'mm-notify-out';
@@ -35,11 +76,23 @@ const ICONS: Readonly<Record<ToastKind, string>> = {
   neutral: 'M8.87 14.08V7.11M8.87 3.66h0',
 };
 
+/** An element with these attributes: SVG, or HTML when asked. */
 function shape(
   tag: string,
   attributes: Readonly<Record<string, string>>
-): SVGElement {
-  const element = document.createElementNS(SVG, tag);
+): SVGElement;
+function shape(
+  tag: string,
+  attributes: Readonly<Record<string, string>>,
+  html: true
+): HTMLElement;
+function shape(
+  tag: string,
+  attributes: Readonly<Record<string, string>>,
+  html?: true
+): Element {
+  const element =
+    html ? document.createElement(tag) : document.createElementNS(SVG, tag);
   for (const [name, value] of Object.entries(attributes))
     element.setAttribute(name, value);
   return element;
@@ -54,25 +107,26 @@ function icon(kind: ToastKind): SVGElement {
   return svg;
 }
 
-function makeButton(className: string, click: () => void): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = className;
+function makeButton(className: string, click: () => void): HTMLElement {
+  const button = shape('button', { type: 'button', class: className }, true);
   button.addEventListener('click', click);
   return button;
 }
 
-interface Shown {
+/** A message: its handle, with what the package needs (not part of the API). */
+interface Shown extends ToastHandle {
   readonly item: HTMLElement;
   /** Starts or stops its timer, for what holds it now. */
   readonly sync: () => void;
-  /** Kind and text: what a repeat has in common with it. */
-  readonly key: string;
+  /** Kind and text, as they are now: what a repeat has in common with it. */
+  key: string;
   /**
    * A repeat came, asking for this time: the longer of the two starts over, and when
    * the repeat is announced, so is this one, read out again.
    */
   readonly again: (announce: boolean, ms: number) => void;
+  /** Fulfils `whenClosed`. */
+  readonly end: () => void;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -83,7 +137,7 @@ let depth = 0;
 let region: HTMLElement | undefined;
 /** The live region: only messages, or the button below would be read out as one. */
 let list!: HTMLElement;
-let clearAll!: HTMLButtonElement;
+let clearAll!: HTMLElement;
 /** Watches the list and each message, for the fades. */
 let watch: ResizeObserver | undefined;
 /** A popover opened after the region is above it (see `order`). */
@@ -146,14 +200,13 @@ function showClearAll(): void {
 function ownRegion(): void {
   if (region?.isConnected) return;
   injectStyles();
-  // Taken out of the page: what was in it is gone, what waits for its frame isn't.
-  shown = shown.filter(({ item }) => !item.parentElement);
-  region = document.createElement('div');
-  region.className = 'mm-notify-region';
-  region.setAttribute('popover', 'manual');
-  list = document.createElement('div');
-  list.className = 'mm-notify-list';
-  list.setAttribute('aria-live', 'polite');
+  // Taken out of the page: what was in it is gone (closed), what waits for its frame isn't.
+  shown = shown.filter((entry) => {
+    if (entry.item.parentElement) entry.end();
+    return !entry.item.parentElement;
+  });
+  region = shape('div', { class: 'mm-notify-region', popover: 'manual' }, true);
+  list = shape('div', { class: 'mm-notify-list', 'aria-live': 'polite' }, true);
   clearAll = makeButton('mm-notify-clear', () => {
     [...shown].forEach(close);
   });
@@ -191,6 +244,7 @@ function close(entry: Shown): void {
   const at = shown.indexOf(entry);
   if (at < 0) return;
   shown.splice(at, 1);
+  entry.end();
   const { item } = entry;
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
@@ -213,49 +267,101 @@ function close(entry: Shown): void {
   if (config.sequential && !at) shown[0]?.sync();
 }
 
+/** Numbers the messages' texts, which name their progress bars. */
+let ids = 0;
+
 /**
- * Shows a notification. The same kind and text as one still on screen shows
- * again only with `configure({ repeats: true })`; otherwise that one starts over.
+ * Shows a notification and returns its handle, to change it later. The same kind
+ * and text as one still on screen shows again only with `configure({ repeats:
+ * true })`; otherwise that one starts over, and its handle is returned.
  */
 export function toast(
   text: string,
   kind: ToastKind = 'neutral',
   options: ToastOptions = {}
-): void {
-  if (!text) return;
-  ownRegion();
-  raise();
-  const key = `${kind} ${text}`;
+): ToastHandle {
+  if (text) {
+    ownRegion();
+    raise();
+  }
   const ms = options.timeoutMs ?? config.durations[kind];
-  const same = config.repeats ? undefined : shown.find((e) => e.key === key);
+  const same =
+    text && !config.repeats ?
+      shown.find((e) => e.key === `${kind} ${text}`)
+    : undefined;
   if (same) {
     same.again(options.announce !== false, ms);
-    return;
+    return same;
   }
 
   const item = document.createElement('div');
-  item.className = `mm-notify mm-notify-${kind}`;
-  // Unannounced: its own box is no live region, which takes it out of the list's
-  // (the nearest `aria-live` counts). Not `aria-hidden`: its close button is focusable.
-  const loud = (): void => {
-    item.removeAttribute('aria-live');
-    if (kind === 'error') item.setAttribute('role', 'alert');
-  };
-  if (options.announce === false) item.setAttribute('aria-live', 'off');
-  else loud();
+  const svg = icon(kind);
   const message = document.createElement('p');
-  message.textContent = text;
   const button = makeButton('mm-notify-close', () => {
     close(entry);
   });
-  button.setAttribute('aria-label', options.closeLabel ?? config.closeLabel);
-  item.append(icon(kind), message, button);
+  item.append(svg, message, button);
+  let bar: HTMLElement | undefined;
+  let lines: HTMLElement | undefined;
+  /** The text as it is now. */
+  let now = text;
+  /**
+   * Read out or not, from now on. Unannounced: its own box is no live region, which
+   * takes it out of the list's (the nearest `aria-live` counts). Not `aria-hidden`:
+   * its close button is focusable. An error that is read out is an alert.
+   */
+  const voice = (loud: boolean): void => {
+    if (loud) item.removeAttribute('aria-live');
+    else item.setAttribute('aria-live', 'off');
+    if (loud && kind === 'error') item.setAttribute('role', 'alert');
+    else item.removeAttribute('role');
+  };
+  /**
+   * The contents, all at once. `fresh`: as a new message (`replace`, and the first).
+   * The text node is always a new one: a change screen readers read from a live region.
+   */
+  const set = (
+    words: string,
+    to: ToastKind = kind,
+    { announce, timeoutMs, closeLabel }: ToastOptions,
+    fresh: boolean
+  ): Shown => {
+    if (entry.closed) return entry;
+    const moved = to !== kind;
+    kind = to;
+    item.className = `mm-notify mm-notify-${kind}`;
+    (svg.lastChild as SVGElement).setAttribute('d', ICONS[kind]);
+    duration =
+      timeoutMs ?? (moved || fresh ? config.durations[kind] : duration);
+    if (fresh) {
+      bar?.remove();
+      lines?.remove();
+      bar = lines = undefined;
+    }
+    button.setAttribute(
+      'aria-label',
+      closeLabel ?? button.getAttribute('aria-label') ?? config.closeLabel
+    );
+    voice(announce ?? (moved || fresh));
+    now = words || now;
+    message.textContent = now;
+    entry.key = `${kind} ${now}`;
+    return changed();
+  };
+  /** After any change: grow to it if it is still growing, and start the time over. */
+  const changed = (): Shown => {
+    if (item.isConnected)
+      item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
+    entry.sync();
+    return entry;
+  };
 
   // Counts down only on the page, while neither the pointer nor the focus is on
-  // it, and when sequential only as the oldest.
+  // it nor a progress bar shows, and when sequential only as the oldest.
   let duration = ms;
   let holds = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let end!: () => void;
   const entry: Shown = {
     item,
     sync() {
@@ -263,6 +369,7 @@ export function toast(
       if (
         duration > 0 &&
         !holds &&
+        !bar &&
         item.isConnected &&
         (!config.sequential || shown[0] === entry)
       )
@@ -270,19 +377,99 @@ export function toast(
           close(entry);
         }, duration);
     },
-    key,
+    key: '',
     again(announce, time) {
       // Until closed (0 or less) is the longest: a repeat never shortens a message.
       if (duration > 0 && (time <= 0 || time > duration)) duration = time;
       if (announce) {
         // Shown unannounced before: in the live region now, or nothing would be read.
-        loud();
-        // A text node in its place: a change screen readers read from a live region.
-        message.textContent = text;
+        voice(true);
+        message.textContent = now;
       }
       entry.sync();
     },
+    end: () => {
+      end();
+    },
+    whenClosed: new Promise((resolve) => {
+      end = resolve;
+    }),
+    get closed() {
+      return !shown.includes(entry);
+    },
+    close() {
+      close(entry);
+    },
+    update(words, to, opts = {}) {
+      return set(words, to, opts, false);
+    },
+    replace(words, to, opts = {}) {
+      return set(words, to, opts, true);
+    },
+    progress(value, valueText) {
+      if (entry.closed) return entry;
+      if (value === false) {
+        bar?.remove();
+        bar = undefined;
+      } else {
+        if (!bar) {
+          message.id ||= `mm-notify-${++ids}`;
+          bar = shape(
+            'div',
+            {
+              class: 'mm-notify-bar',
+              role: 'progressbar',
+              'aria-labelledby': message.id,
+            },
+            true
+          );
+          item.insertBefore(bar, lines ?? null);
+        }
+        if (value === true) bar.removeAttribute('aria-valuenow');
+        else {
+          const share = Math.min(1, Math.max(0, value)) || 0;
+          bar.setAttribute('aria-valuenow', `${Math.round(share * 100)}`);
+          bar.style.setProperty('--mm-notify-value', `${share}`);
+        }
+        if (valueText) bar.setAttribute('aria-valuetext', valueText);
+        else bar.removeAttribute('aria-valuetext');
+      }
+      return changed();
+    },
+    log(line) {
+      if (entry.closed) return entry;
+      if (!lines) {
+        // A log, not read out line by line; focusable, so a keyboard can scroll it.
+        lines = shape(
+          'div',
+          {
+            class: 'mm-notify-log',
+            role: 'log',
+            'aria-live': 'off',
+            tabindex: '0',
+          },
+          true
+        );
+        item.append(lines);
+      }
+      // At its end (or new): stays at its end, the newest in sight. Scrolled up: stays.
+      const atEnd =
+        lines.scrollTop + lines.clientHeight >= lines.scrollHeight - 2;
+      const row = document.createElement('div');
+      row.textContent = line;
+      lines.append(row);
+      while (lines.childElementCount > config.logLines)
+        lines.firstElementChild?.remove();
+      if (atEnd) lines.scrollTop = lines.scrollHeight;
+      return changed();
+    },
   };
+  if (!text) {
+    end();
+    return entry; // never shown: closed from the start
+  }
+  shown.push(entry);
+  set(text, kind, options, true);
   const hold = (event: string, by: number): void => {
     item.addEventListener(event, () => {
       holds += by;
@@ -294,7 +481,6 @@ export function toast(
   hold('focusin', 1);
   hold('focusout', -1);
 
-  shown.push(entry);
   showClearAll();
   setOpen(true);
   // The next frame: an addition to an existing live region is what screen readers announce.
@@ -316,6 +502,7 @@ export function toast(
     watch?.observe(item);
     entry.sync();
   });
+  return entry;
 }
 
 /**

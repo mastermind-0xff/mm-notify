@@ -8,4 +8,4 @@
 export { configure } from './config.js';
 export type { NotifyConfig, ToastKind } from './config.js';
 export { flash, showFlash, toast } from './toast.js';
-export type { ToastOptions } from './toast.js';
+export type { ToastHandle, ToastOptions } from './toast.js';
