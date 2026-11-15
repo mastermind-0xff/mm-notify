@@ -1042,6 +1042,41 @@ describe('toast: the focus after closing', () => {
     two.close();
     expect(document.activeElement).not.toBe(next.origin);
   });
+
+  // Review (2026-11-15): each message kept its own origin, so a focus that came through
+  // another message went back there, and that message's origin became this one's cross.
+  it('goes back to the page, not to a message it came through', () => {
+    const one = toast('One', 'neutral', { timeoutMs: 0 });
+    toast('Two', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const { origin } = start(); // on One's cross
+    closeButton('Two').focus();
+    closeButton('Two').click();
+    expect(document.activeElement).toBe(origin);
+    // In again, through the other message; that one closes while the focus is on.
+    toast('Three', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    closeButton('Three').focus();
+    closeButton('One').focus();
+    one.close();
+    vi.advanceTimersByTime(350);
+    expect(document.activeElement).toBe(origin);
+    closeButton('Three').focus();
+    closeButton('Three').click();
+    expect(document.activeElement).toBe(origin);
+  });
+
+  it('takes the latest way in from the page', () => {
+    const job = toast('Saved.', 'success', { timeoutMs: 0 });
+    nextFrame();
+    const { cross } = start();
+    const other = document.createElement('input');
+    document.body.append(other);
+    other.focus();
+    cross.focus();
+    job.close();
+    expect(document.activeElement).toBe(other);
+  });
 });
 
 describe('toast: the scrolling stack and its fades', () => {
@@ -1282,6 +1317,24 @@ describe('toast: above popovers opened after it', () => {
     expect(document.activeElement).toBe(cross);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
     expect(list().scrollTop).toBe(120);
+  });
+
+  it('keeps where the focus came into the region from, past the focus it gives back', () => {
+    toast('One', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const origin = document.createElement('button');
+    document.body.prepend(origin);
+    origin.focus();
+    const cross = closeButton('One');
+    cross.focus();
+    menu().togglePopover(true);
+    onClose = () => {
+      cross.blur();
+    };
+    toast('Two');
+    expect(document.activeElement).toBe(cross);
+    cross.click();
+    expect(document.activeElement).toBe(origin);
   });
 
   it('leaves an unannounced message out of the live region, and its text alone', () => {

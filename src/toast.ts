@@ -54,7 +54,7 @@ export interface ToastHandle {
   log(line: string): ToastHandle;
   /**
    * Closes the message, as its cross does. A focus in it goes back to where it came
-   * from, if that is still on the page.
+   * into the notifications from, if that is still on the page.
    */
   close(): void;
   /** Whether the message is closed (or never showed: an empty text). */
@@ -130,8 +130,6 @@ interface Shown extends ToastHandle {
   readonly again: (announce: boolean, ms: number) => void;
   /** Fulfils `whenClosed`. */
   readonly end: () => void;
-  /** Where the keyboard focus came from into the message: it goes back there on closing. */
-  back?: HTMLElement | null;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -147,6 +145,11 @@ let clearAll!: HTMLElement;
 let watch: ResizeObserver | undefined;
 /** A popover opened after the region is above it (see `order`). */
 let under = false;
+/**
+ * Where the focus came into the region from: the page's element (or none). Moving
+ * within the region, from message to message, keeps it.
+ */
+let origin: HTMLElement | null = null;
 
 /** A bottom position: `--notify-flow: column-reverse` shows the DOM upside down. */
 const reversed = (): boolean =>
@@ -186,11 +189,13 @@ function raise(): void {
   if (!under) return;
   const { activeElement } = document;
   const { scrollTop } = list;
+  const from = origin;
   setOpen(false);
   setOpen(true);
   list.scrollTop = scrollTop;
   if (document.activeElement !== activeElement)
     (activeElement as HTMLElement | null)?.focus({ preventScroll: true });
+  origin = from; // the focus given back came from nowhere
 }
 
 function showClearAll(): void {
@@ -219,6 +224,11 @@ function ownRegion(): void {
   region.append(list, clearAll);
   document.body.append(region);
   list.addEventListener('scroll', edges);
+  // Where the focus comes in from, not where it moves within: back there (see `close`).
+  region.addEventListener('focusin', ({ relatedTarget }) => {
+    if (!region?.contains(relatedTarget as Node | null))
+      origin = relatedTarget as HTMLElement | null;
+  });
   // The list changes size with the window, a message as it grows or shrinks: what is
   // beyond an edge with either. Too old a browser: no fades, nothing hidden by one.
   watch?.disconnect();
@@ -250,11 +260,13 @@ function close(entry: Shown): void {
   if (at < 0) return;
   shown.splice(at, 1);
   entry.end();
-  const { item, back } = entry;
+  const { item } = entry;
   // The focus in it would fall to the page's start when it goes: back where it came
-  // from, if that is still on the page (and focusable: otherwise `focus()` does nothing).
-  if (item.contains(document.activeElement) && back?.isConnected)
-    back.focus({ preventScroll: true });
+  // into the region from, if that is still on the page (and focusable: otherwise
+  // `focus()` does nothing). Not where it came into this message from: another
+  // message, which may be gone by then.
+  if (item.contains(document.activeElement) && origin?.isConnected)
+    origin.focus({ preventScroll: true });
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
   // transition from the animation's values. So first what the box is now, applied.
@@ -530,10 +542,6 @@ export function toast(
   hold('pointerleave', -1);
   hold('focusin', 1);
   hold('focusout', -1);
-  item.addEventListener('focusin', ({ relatedTarget }) => {
-    if (!item.contains(relatedTarget as Node | null))
-      entry.back = relatedTarget as HTMLElement | null;
-  });
 
   showClearAll();
   setOpen(true);

@@ -356,6 +356,33 @@ test.describe('the focus after closing', () => {
       'BODY'
     );
   });
+
+  // Review (2026-11-15): with an origin per message, closing the one the focus came
+  // through handed it back to the other, whose origin then became a closed cross: body.
+  test('goes back to the page, not to a message it came through', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('a', 'Message A', 'neutral', { timeoutMs: 0 });
+      await window.t.job('b', 'Message B', 'neutral', { timeoutMs: 0 });
+    });
+    const cross = (text) =>
+      page.locator('.mm-notify', { hasText: text }).locator('.mm-notify-close');
+    const origin = page.getByRole('button', { name: NAME, exact: true });
+    await origin.focus();
+    await cross('Message B').focus(); // the newest is first
+    await page.keyboard.press('Tab');
+    await expect(cross('Message A')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(origin).toBeFocused();
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    await cross('Message B').focus();
+    await page.keyboard.press('Enter');
+    await expect(origin).toBeFocused();
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    await expect(origin).toBeFocused();
+  });
 });
 
 // N24 (2026-11-15): a silent message read out again joins the live region first; its
