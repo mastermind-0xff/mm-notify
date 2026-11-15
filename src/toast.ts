@@ -52,7 +52,10 @@ export interface ToastHandle {
    * kept. Not read out. The time starts over.
    */
   log(line: string): ToastHandle;
-  /** Closes the message, as its cross does. */
+  /**
+   * Closes the message, as its cross does. A focus in it goes back to where it came
+   * from, if that is still on the page.
+   */
   close(): void;
   /** Whether the message is closed (or never showed: an empty text). */
   readonly closed: boolean;
@@ -127,6 +130,8 @@ interface Shown extends ToastHandle {
   readonly again: (announce: boolean, ms: number) => void;
   /** Fulfils `whenClosed`. */
   readonly end: () => void;
+  /** Where the keyboard focus came from into the message: it goes back there on closing. */
+  back?: HTMLElement | null;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -245,7 +250,11 @@ function close(entry: Shown): void {
   if (at < 0) return;
   shown.splice(at, 1);
   entry.end();
-  const { item } = entry;
+  const { item, back } = entry;
+  // The focus in it would fall to the page's start when it goes: back where it came
+  // from, if that is still on the page (and focusable: otherwise `focus()` does nothing).
+  if (item.contains(document.activeElement) && back?.isConnected)
+    back.focus({ preventScroll: true });
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
   // transition from the animation's values. So first what the box is now, applied.
@@ -495,6 +504,10 @@ export function toast(
   hold('pointerleave', -1);
   hold('focusin', 1);
   hold('focusout', -1);
+  item.addEventListener('focusin', ({ relatedTarget }) => {
+    if (!item.contains(relatedTarget as Node | null))
+      entry.back = relatedTarget as HTMLElement | null;
+  });
 
   showClearAll();
   setOpen(true);

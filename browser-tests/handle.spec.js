@@ -298,6 +298,83 @@ test.describe('the log', () => {
   });
 });
 
+// The user's N27 (2026-11-15): the focus in a closing message fell to the page's start.
+test.describe('the focus after closing', () => {
+  const NAME = 'Neutral';
+
+  test('goes back where it came from: the cross by keyboard, close() from the log', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('saved', 'Saved.', 'success', { timeoutMs: 0 });
+    });
+    const origin = page.getByRole('button', { name: NAME, exact: true });
+    await origin.focus();
+    await page.locator('.mm-notify-close').focus();
+    await page.keyboard.press('Enter');
+    await expect(origin).toBeFocused();
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    await expect(origin).toBeFocused();
+
+    await page.evaluate(async () => {
+      await window.t.job('deploy', 'Deploying…', 'neutral', { timeoutMs: 0 });
+      window.t.jobs.deploy.log('Building');
+    });
+    await page.locator('.mm-notify-close').focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('log')).toBeFocused();
+    await page.evaluate(() => {
+      window.t.jobs.deploy.close();
+    });
+    await expect(origin).toBeFocused();
+  });
+
+  test('stays in the message on replace, and is left alone when its origin is gone', async ({
+    page,
+  }) => {
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('deploy', 'Deploying…', 'neutral', { timeoutMs: 0 });
+      window.t.jobs.deploy.log('Building');
+    });
+    const origin = page.getByRole('button', { name: NAME, exact: true });
+    await origin.focus();
+    await page.locator('.mm-notify-close').focus();
+    await page.evaluate(() => {
+      window.t.jobs.deploy.replace('Deployed.', 'success', { timeoutMs: 0 });
+    });
+    await expect(page.locator('.mm-notify-close')).toBeFocused();
+    await origin.evaluate((button) => {
+      button.remove();
+    });
+    await page.evaluate(() => {
+      window.t.jobs.deploy.close();
+    });
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe(
+      'BODY'
+    );
+  });
+});
+
+// The user's N23 (2026-11-15): work in progress is never shared with other work.
+test('the same text as a message with a progress bar shows a message of its own', async ({
+  page,
+}) => {
+  await open(page);
+  const same = await page.evaluate(async () => {
+    const { t } = window;
+    await t.job('one', 'Saving…', 'neutral');
+    t.jobs.one.progress(true);
+    await t.job('two', 'Saving…', 'neutral');
+    await t.job('three', 'Saving…', 'neutral');
+    return [t.jobs.one === t.jobs.two, t.jobs.two === t.jobs.three];
+  });
+  expect(same).toEqual([false, true]);
+  await expect(page.locator('.mm-notify')).toHaveCount(2);
+});
+
 test('an update after the reader closed the message does nothing, and it stays closed', async ({
   page,
 }) => {

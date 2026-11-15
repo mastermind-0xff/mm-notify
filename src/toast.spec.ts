@@ -967,6 +967,80 @@ describe('toast: closing', () => {
   });
 });
 
+// The user's N27 (2026-11-15): the focus in a closing message fell to the page's start.
+describe('toast: the focus after closing', () => {
+  /** A button on the page with the focus, then the focus in a message. */
+  const start = (): { origin: HTMLButtonElement; cross: HTMLButtonElement } => {
+    const origin = document.createElement('button');
+    origin.textContent = 'Save';
+    document.body.prepend(origin);
+    origin.focus();
+    const cross = items()[0]!.querySelector('button')!;
+    cross.focus();
+    return { origin, cross };
+  };
+
+  it('goes back where it came from when the cross closes the message', () => {
+    toast('Saved.', 'success');
+    nextFrame();
+    const { origin, cross } = start();
+    expect(document.activeElement).toBe(cross);
+    cross.click();
+    expect(document.activeElement).toBe(origin);
+    vi.advanceTimersByTime(350);
+    expect(document.activeElement).toBe(origin);
+  });
+
+  it('goes back when code closes the message, from its log too', () => {
+    const job = toast('Deploying…', 'neutral', { timeoutMs: 0 });
+    job.log('Step 1');
+    nextFrame();
+    const { origin } = start();
+    const log = items()[0]!.querySelector<HTMLElement>('.mm-notify-log')!;
+    // Within the message: still from the button on the page.
+    log.focus();
+    expect(document.activeElement).toBe(log);
+    job.close();
+    expect(document.activeElement).toBe(origin);
+  });
+
+  it('stays in the message on replace', () => {
+    const job = toast('Deploying…', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const { cross } = start();
+    job.replace('Deployed.', 'success');
+    expect(document.activeElement).toBe(cross);
+  });
+
+  it('moves nothing when the focus is elsewhere', () => {
+    const job = toast('Saved.', 'success');
+    nextFrame();
+    const { cross } = start();
+    const other = document.createElement('input');
+    document.body.append(other);
+    other.focus();
+    expect(cross).not.toBe(document.activeElement);
+    job.close();
+    expect(document.activeElement).toBe(other);
+  });
+
+  it('is left as before when where it came from is gone or not focusable', () => {
+    const one = toast('One', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const { origin, cross } = start();
+    origin.remove();
+    one.close();
+    expect(document.activeElement).toBe(cross);
+
+    const two = toast('Two', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const next = start();
+    next.origin.disabled = true;
+    two.close();
+    expect(document.activeElement).not.toBe(next.origin);
+  });
+});
+
 describe('toast: the scrolling stack and its fades', () => {
   // happy-dom lays nothing out: the sizes are set here. It keeps a scrollTop.
   let content = 500;

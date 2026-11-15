@@ -26,6 +26,12 @@ the notification"):
   `aria-valuetext` when given), never announced; the log is a `role="log"` with
   `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no
   amount stands still.
+- **The focus after closing** (the user's N27, 2026-11-15): a message that closes with the
+  focus in it (its cross, or `close()` from code while the reader is on its cross or in
+  its log) gives the focus back to where it came from (the `focusin`'s `relatedTarget`),
+  if that is still on the page and focusable, without scrolling; otherwise it falls to the
+  page as before. Before, the focus fell to `body` when the message was removed, for the
+  cross too. `replace` keeps the focus in the message.
 - **Repeats:** a repeat that shows no message returns the handle of the one on screen and
   compares with what it says now; an update never merges two messages. A message with a
   progress bar is never a repeat target (the user's N23, 2026-11-15): the same text shows a

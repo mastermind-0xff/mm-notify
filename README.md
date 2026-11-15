@@ -92,6 +92,11 @@ Options:
   text too. `showFlash` shows through `toast`, so the same rule applies.
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
+- A message that closes with the focus in it (its cross, or `close()` from code while the reader is on its cross or in its log) gives the focus back to
+  where it came from: the element that had it before it moved into the message, if that
+  is still on the page and focusable, without scrolling to it. Otherwise the focus falls
+  to the page as before (a keyboard user starts over at the top). `replace()` keeps the
+  focus in the message.
 - The text goes through `textContent`. There are no HTML messages.
 - Screen readers: the messages sit in a polite live region, an error as `role="alert"`.
   With `announce: false` the message's own box is `aria-live="off"`, which takes it out of
