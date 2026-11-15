@@ -459,7 +459,9 @@ test.describe('announce: false', () => {
     await page.evaluate(() =>
       window.t.toast('Failed.', 'error', { timeoutMs: 0 })
     );
-    expect(await attributes()).toEqual([null, 'alert']);
+    // Live at once; the alert comes with its words, 100 ms later (N24).
+    expect((await attributes())[0]).toBeNull();
+    await expect.poll(attributes).toEqual([null, 'alert']);
     expect(await page.locator('.mm-notify').count()).toBe(1);
   });
 

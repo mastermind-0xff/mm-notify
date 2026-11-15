@@ -488,6 +488,8 @@ test('the accessibility tree: a named progress bar, a log, read out only when as
     await page.evaluate(() =>
       window.t.jobs.upload.replace('The upload failed.', 'error')
     );
+    // Its kind, words and alert follow its joining the live region by 100 ms (N24).
+    await expect(page.getByRole('alert')).toHaveText('The upload failed.');
     nodes = await tree();
     expect(live().sort()).toEqual(['assertive', 'polite']);
     expect(nodes.filter((node) => node.role?.value === 'alert')).toHaveLength(
