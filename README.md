@@ -102,7 +102,8 @@ Options:
   With `announce: false` the message's own box is `aria-live="off"`, which takes it out of
   that region: it is not read out when it appears, but it stays in the accessibility tree
   with its named close button, reachable by Tab (no `aria-hidden`, so axe's
-  `aria-hidden-focus` holds). An announced repeat of it joins the live region and is read.
+  `aria-hidden-focus` holds). An announced repeat of it joins the live region and is read
+  (its words written again 100 ms after it joins, see "Screen readers" below).
 
 A new message comes in at the start of the stack: on top for the top positions, at the
 bottom for the bottom positions (`--notify-flow`, see "Position"). It grows into place, so
@@ -258,7 +259,10 @@ stop the work's updates; show a new `toast()` if the outcome must still be said.
   came with, so an announced message is read out with its latest words.
   Silent means the message's box is `aria-live="off"` from then on, as with
   `announce: false`; the next change that is read out joins the live region again, an
-  error as `role="alert"`.
+  error as `role="alert"`. It joins first, and its new kind and words follow 100 ms
+  later (the way a status line is made reliable): a screen reader may miss words that
+  come in the same moment as the change of voice. Changes in those 100 ms go into the
+  words that follow, and a message that is read out already shows its words at once.
 - The bar is a `role="progressbar"` named by the message's text (`aria-labelledby`),
   with `aria-valuenow` from 0 to 100, or none while the amount is unknown (which ARIA
   reads as indeterminate), and `aria-valuetext` when given. Its ticks are never

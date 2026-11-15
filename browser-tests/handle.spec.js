@@ -358,6 +358,43 @@ test.describe('the focus after closing', () => {
   });
 });
 
+// N24 (2026-11-15): a silent message read out again joins the live region first; its
+// words follow 100 ms later, so no screen reader misses them with the change of voice.
+test('a silent message that is read out again: live first, its words 100 ms later', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await open(page);
+  await page.evaluate(async () => {
+    await window.t.job('save', 'Saving…', 'neutral', {
+      announce: false,
+      timeoutMs: 0,
+    });
+    window.t.jobs.save.progress(true);
+  });
+  const item = page.locator('.mm-notify');
+  await expect(item).toHaveAttribute('aria-live', 'off');
+  // In one task: the clock runs, and a slow engine's round trip may take 100 ms.
+  const now = await page.evaluate(() => {
+    const element = document.querySelector('.mm-notify');
+    const read = () => ({
+      live: element.getAttribute('aria-live'),
+      role: element.getAttribute('role'),
+      text: element.querySelector('p').textContent,
+    });
+    window.t.read = read;
+    window.t.jobs.save.replace('Saving failed.', 'error');
+    return read();
+  });
+  expect(now).toEqual({ live: null, role: null, text: 'Saving…' });
+  await page.clock.runFor(100);
+  expect(await page.evaluate(() => window.t.read())).toEqual({
+    live: null,
+    role: 'alert',
+    text: 'Saving failed.',
+  });
+});
+
 // The user's N23 (2026-11-15): work in progress is never shared with other work.
 test('the same text as a message with a progress bar shows a message of its own', async ({
   page,

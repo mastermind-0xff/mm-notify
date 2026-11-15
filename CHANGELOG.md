@@ -21,7 +21,11 @@ the notification"):
 - **Screen readers:** an update of the words alone is silent unless `announce: true`; a new
   kind and `replace` are read out unless `announce: false`. Before its first frame a
   message keeps the announcement it came with (review: a first update there silenced an
-  announced message). The bar is a named
+  announced message). A message on screen that was silent and is read out again (a new
+  kind, `replace`, `announce: true`, an announced repeat) joins the live region first,
+  and its kind and words follow 100 ms later, as aesweets' status lines do (N24,
+  2026-11-15: no screen reader was at hand to check the change in one step); changes in
+  between go into those words. The bar is a named
   `role="progressbar"` (`aria-valuenow`, none while the amount is unknown,
   `aria-valuetext` when given), never announced; the log is a `role="log"` with
   `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no

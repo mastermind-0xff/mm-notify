@@ -319,16 +319,43 @@ export function toast(
   let lines: HTMLElement | undefined;
   /** The text as it is now. */
   let now = text;
+  /** The words (with their kind) waiting to follow a change of voice. */
+  let later: ReturnType<typeof setTimeout> | undefined;
   /**
-   * Read out or not, from now on. Unannounced: its own box is no live region, which
-   * takes it out of the list's (the nearest `aria-live` counts). Not `aria-hidden`:
-   * its close button is focusable. An error that is read out is an alert.
+   * Shows the kind and the words as they are now. The text node is always a new one:
+   * a change screen readers read from a live region. An error that is read out is an
+   * alert, from the moment its words are there.
    */
-  const voice = (loud: boolean): void => {
+  const write = (): void => {
+    clearTimeout(later);
+    later = undefined;
+    if (!item.hasAttribute('aria-live') && kind === 'error')
+      item.setAttribute('role', 'alert');
+    else item.removeAttribute('role');
+    item.className = `mm-notify mm-notify-${kind}`;
+    (svg.lastChild as SVGElement).setAttribute('d', ICONS[kind]);
+    message.textContent = now;
+    grow();
+  };
+  /**
+   * Read out or not, from now on, and the words. Unannounced: its own box is no live
+   * region, which takes it out of the list's (the nearest `aria-live` counts). Not
+   * `aria-hidden`: its close button is focusable. A message on the page that was
+   * unannounced joins the live region first and its words follow 100 ms later, as
+   * aesweets' status lines do: a screen reader may miss words that come with the
+   * change (N24). Words waiting for that take the latest.
+   */
+  const say = (loud: boolean): void => {
+    const joins =
+      loud && item.isConnected && item.getAttribute('aria-live') === 'off';
     if (loud) item.removeAttribute('aria-live');
     else item.setAttribute('aria-live', 'off');
-    if (loud && kind === 'error') item.setAttribute('role', 'alert');
-    else item.removeAttribute('role');
+    if (joins) {
+      clearTimeout(later);
+      later = setTimeout(() => {
+        if (!entry.closed) write();
+      }, 100);
+    } else if (!later) write();
   };
   /**
    * The contents, all at once. `fresh`: as a new message (`replace`, and the first).
@@ -343,8 +370,6 @@ export function toast(
     if (entry.closed) return entry;
     const moved = to !== kind;
     kind = to;
-    item.className = `mm-notify mm-notify-${kind}`;
-    (svg.lastChild as SVGElement).setAttribute('d', ICONS[kind]);
     duration =
       timeoutMs ?? (moved || fresh ? config.durations[kind] : duration);
     if (fresh) {
@@ -358,23 +383,27 @@ export function toast(
       'aria-label',
       closeLabel ?? button.getAttribute('aria-label') ?? config.closeLabel
     );
-    // Not on the page yet (before its frame): new words keep the voice it came with, or
-    // an announced message would arrive silent; the words read are the latest.
-    voice(
+    now = words || now;
+    entry.key = `${kind} ${now}`;
+    // Not on the page yet (before its frame), or its words still to come after joining
+    // the live region: new words keep the voice it came with, or an announced message
+    // would end up silent; the words read are the latest.
+    say(
       announce ??
         (moved ||
           fresh ||
-          (!item.isConnected && !item.hasAttribute('aria-live')))
+          ((!item.isConnected || !!later) && !item.hasAttribute('aria-live')))
     );
-    now = words || now;
-    message.textContent = now;
-    entry.key = `${kind} ${now}`;
     return changed();
   };
-  /** After any change: grow to it if it is still growing, and start the time over. */
-  const changed = (): Shown => {
+  /** A message still growing grows to its contents now (an overestimate is harmless). */
+  const grow = (): void => {
     if (item.isConnected)
       item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
+  };
+  /** After any change: grow to it, and start the time over. */
+  const changed = (): Shown => {
+    grow();
     entry.sync();
     return entry;
   };
@@ -404,11 +433,8 @@ export function toast(
     again(announce, time) {
       // Until closed (0 or less) is the longest: a repeat never shortens a message.
       if (duration > 0 && (time <= 0 || time > duration)) duration = time;
-      if (announce) {
-        // Shown unannounced before: in the live region now, or nothing would be read.
-        voice(true);
-        message.textContent = now;
-      }
+      // Shown unannounced before: in the live region now, or nothing would be read.
+      if (announce) say(true);
       entry.sync();
     },
     end: () => {

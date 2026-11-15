@@ -476,7 +476,10 @@ describe('toast: the same text twice, by default', () => {
     expect(items()[0]!.getAttribute('role')).toBeNull();
     expect(textNode()).toBe(before);
     toast('Something went wrong.', 'error');
+    // In the live region first, the words (and the alert) 100 ms later (N24).
     expect(items()[0]!.hasAttribute('aria-live')).toBe(false);
+    expect(textNode()).toBe(before);
+    vi.advanceTimersByTime(100);
     expect(items()[0]!.getAttribute('role')).toBe('alert');
     expect(textNode()).not.toBe(before);
   });
@@ -1828,6 +1831,102 @@ describe('handle.update', () => {
   });
 });
 
+// N24 (the user's "do what you think is best", 2026-11-15): a message that was silent
+// joins the live region first, and its words follow 100 ms later, as aesweets' status
+// lines do, so no screen reader misses the words that come with the change.
+describe('handle: the words follow when a silent message is read out again', () => {
+  const node = (item: HTMLElement): Node | null =>
+    item.querySelector('p')!.firstChild;
+
+  it('joins the live region now, the kind, words and alert 100 ms later', () => {
+    const job = toast('Saving…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    const before = node(item);
+    job.update('Saving failed.', 'error');
+    expect(item.hasAttribute('aria-live')).toBe(false);
+    expect(item.hasAttribute('role')).toBe(false);
+    expect(node(item)).toBe(before);
+    expect(item.className).toBe('mm-notify mm-notify-neutral');
+    vi.advanceTimersByTime(99);
+    expect(node(item)).toBe(before);
+    vi.advanceTimersByTime(1);
+    expect(texts()).toEqual(['Saving failed.']);
+    expect(node(item)).not.toBe(before);
+    expect(item.className).toBe('mm-notify mm-notify-error');
+    expect(item.getAttribute('role')).toBe('alert');
+  });
+
+  it('is what replace does, and an announced repeat', () => {
+    const job = toast('Working…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    job.replace('Done.', 'success');
+    expect(texts()).toEqual(['Working…']);
+    vi.advanceTimersByTime(100);
+    expect(texts()).toEqual(['Done.']);
+    // Once read out, new words of a message in the live region come at once.
+    job.update('Done, really.', 'success', { announce: true });
+    expect(texts()).toEqual(['Done, really.']);
+    const before = node(item);
+    toast('Done, really.', 'success');
+    expect(node(item)).not.toBe(before);
+  });
+
+  it('takes the latest words, and keeps the voice, while they wait', () => {
+    const job = toast('Uploading…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    job.update('Uploaded.', 'success');
+    job.update('Uploaded 3 files.');
+    expect(item.hasAttribute('aria-live')).toBe(false);
+    vi.advanceTimersByTime(100);
+    expect(texts()).toEqual(['Uploaded 3 files.']);
+    expect(item.hasAttribute('aria-live')).toBe(false);
+    // On the page and written: new words of the same kind are silent again, at once.
+    job.update('Uploaded 4 files.');
+    expect(item.getAttribute('aria-live')).toBe('off');
+    expect(texts()).toEqual(['Uploaded 4 files.']);
+  });
+
+  it('stays silent when told so while the words wait', () => {
+    const job = toast('Uploading…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    job.update('Uploaded.', 'success');
+    job.update('Uploaded.', 'success', { announce: false });
+    expect(item.getAttribute('aria-live')).toBe('off');
+    vi.advanceTimersByTime(100);
+    expect(texts()).toEqual(['Uploaded.']);
+    expect(item.getAttribute('aria-live')).toBe('off');
+  });
+
+  it('writes the words at once before the frame, and in the silent direction', () => {
+    toast('Saving…', 'neutral', { announce: false }).update(
+      'Saved.',
+      'success'
+    );
+    expect(items()).toEqual([]);
+    nextFrame();
+    expect(texts()).toEqual(['Saved.']);
+    const job = toast('Exporting…');
+    nextFrame();
+    job.update('Exporting 1 of 3…');
+    expect(texts()).toContain('Exporting 1 of 3…');
+  });
+
+  it('writes nothing once closed: the closing stays as it is', () => {
+    const job = toast('Saving…', 'neutral', { announce: false });
+    nextFrame();
+    const item = items()[0]!;
+    job.update('Saved.', 'success');
+    job.close();
+    vi.advanceTimersByTime(100);
+    expect(item.classList).toContain('mm-notify-out');
+    expect(item.querySelector('p')!.textContent).toBe('Saving…');
+  });
+});
+
 describe('handle.replace', () => {
   it('changes everything: words, kind, no bar, no log, read out', () => {
     const job = toast('Uploading…', 'neutral', { announce: false })
@@ -1836,6 +1935,8 @@ describe('handle.replace', () => {
     nextFrame();
     job.replace('Uploaded.', 'success');
     const item = items()[0]!;
+    // Unannounced before: its words follow its joining the live region (N24).
+    vi.advanceTimersByTime(100);
     expect(texts()).toEqual(['Uploaded.']);
     expect(item.className).toBe('mm-notify mm-notify-success');
     expect(item.querySelector('.mm-notify-bar, .mm-notify-log')).toBeNull();
