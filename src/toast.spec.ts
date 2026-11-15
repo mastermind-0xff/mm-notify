@@ -1066,6 +1066,45 @@ describe('toast: the focus after closing', () => {
     expect(document.activeElement).toBe(origin);
   });
 
+  // Review (2026-11-15): with `preventScroll` always, a keyboard's focus could go back
+  // to a button scrolled out of sight, its ring seen nowhere (WCAG 2.4.7).
+  it('brings a keyboard focus into sight, and leaves a pointer page in place', () => {
+    const one = toast('One', 'neutral', { timeoutMs: 0 });
+    const two = toast('Two', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const { origin } = start(); // on One's cross
+    const focus = vi.spyOn(origin, 'focus');
+    // happy-dom matches `:focus-visible` on any focus: a keyboard's.
+    one.close();
+    expect(focus).toHaveBeenLastCalledWith({ preventScroll: false });
+    expect(document.activeElement).toBe(origin);
+    // A pointer's click on the cross (Chromium and Firefox focus it): no focus ring.
+    const cross = closeButton('Two');
+    cross.focus();
+    vi.spyOn(cross, 'matches').mockImplementation(
+      (selector) => selector !== ':focus-visible'
+    );
+    two.close();
+    expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    expect(document.activeElement).toBe(origin);
+  });
+
+  it('leaves the page in place in a browser without :focus-visible', () => {
+    const job = toast('One', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    const { origin, cross } = start();
+    const focus = vi.spyOn(origin, 'focus');
+    vi.spyOn(cross, 'matches').mockImplementation(() => {
+      throw new SyntaxError('unknown pseudo-class');
+    });
+    expect(() => {
+      job.close();
+    }).not.toThrow();
+    expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    expect(document.activeElement).toBe(origin);
+    expect(showing()).toEqual([]);
+  });
+
   it('takes the latest way in from the page', () => {
     const job = toast('Saved.', 'success', { timeoutMs: 0 });
     nextFrame();

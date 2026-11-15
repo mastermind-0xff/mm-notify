@@ -383,6 +383,64 @@ test.describe('the focus after closing', () => {
     await expect(page.locator('.mm-notify')).toHaveCount(0);
     await expect(origin).toBeFocused();
   });
+
+  // Review (2026-11-15): with `preventScroll` always, a keyboard's focus went back to a
+  // button out of sight, its ring seen nowhere (WCAG 2.4.7).
+  test('a keyboard focus comes into sight; a click on the cross moves no page', async ({
+    page,
+    browserName,
+  }) => {
+    await page.setViewportSize({ width: 800, height: 400 });
+    await open(page);
+    await page.evaluate(async () => {
+      await window.t.job('one', 'One', 'neutral', { timeoutMs: 0 });
+    });
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    const state = () =>
+      page.evaluate(() => {
+        const origin = document.getElementById('origin');
+        const { top, bottom } = origin.getBoundingClientRect();
+        return {
+          focused: document.activeElement === origin,
+          inSight: bottom > 0 && top < innerHeight,
+          y: Math.round(scrollY),
+        };
+      });
+    // The page's last button before the region; Tab takes the focus on to the cross.
+    await page.evaluate(() => {
+      const origin = document.createElement('button');
+      origin.id = 'origin';
+      origin.textContent = 'Origin';
+      document.body.insertBefore(
+        origin,
+        document.querySelector('.mm-notify-region')
+      );
+      origin.focus();
+    });
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.mm-notify-close')).toBeFocused();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect((await state()).inSight).toBe(false);
+    await page.keyboard.press('Enter');
+    await expect.poll(state).toMatchObject({ focused: true, inSight: true });
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+
+    // A pointer: the origin clicked at the page's end, the cross clicked at its start.
+    await page.evaluate(async () => {
+      await window.t.job('two', 'Two', 'neutral', { timeoutMs: 0 });
+    });
+    await expect(page.locator('.mm-notify')).toHaveCount(1);
+    await page.locator('#origin').click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator('.mm-notify-close').click();
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    // WebKit doesn't focus a button on a click: the focus was never in the message.
+    expect(await state()).toEqual({
+      focused: browserName !== 'webkit',
+      inSight: false,
+      y: 0,
+    });
+  });
 });
 
 // N24 (2026-11-15): a silent message read out again joins the live region first; its

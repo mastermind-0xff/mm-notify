@@ -255,18 +255,30 @@ function setOpen(open: boolean): void {
   }
 }
 
+/**
+ * The focus on what goes would fall to the page's start: back where it came into the
+ * region from, if that is still on the page (and focusable: otherwise `focus()` does
+ * nothing). Not where it came into a message from: another message, which may be gone
+ * by then. A keyboard's focus comes into sight, as on Tab (out of sight, its ring shows
+ * nowhere); a pointer's click on the cross doesn't move the page.
+ */
+function giveBack(): void {
+  let keys = false;
+  try {
+    keys = !!document.activeElement?.matches(':focus-visible');
+  } catch {
+    // Too old a browser for `:focus-visible`: in place.
+  }
+  if (origin?.isConnected) origin.focus({ preventScroll: !keys });
+}
+
 function close(entry: Shown): void {
   const at = shown.indexOf(entry);
   if (at < 0) return;
   shown.splice(at, 1);
   entry.end();
   const { item } = entry;
-  // The focus in it would fall to the page's start when it goes: back where it came
-  // into the region from, if that is still on the page (and focusable: otherwise
-  // `focus()` does nothing). Not where it came into this message from: another
-  // message, which may be gone by then.
-  if (item.contains(document.activeElement) && origin?.isConnected)
-    origin.focus({ preventScroll: true });
+  if (item.contains(document.activeElement)) giveBack();
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
   // transition from the animation's values. So first what the box is now, applied.
