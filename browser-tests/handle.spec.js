@@ -384,6 +384,25 @@ test.describe('the focus after closing', () => {
     await expect(origin).toBeFocused();
   });
 
+  // Review (2026-11-15): Clear all went with the focus on it, which fell to the body.
+  test('Clear all gives it back when it goes', async ({ page }) => {
+    await open(page);
+    await page.evaluate(async () => {
+      for (const text of ['One', 'Two', 'Three'])
+        await window.t.job(text, text, 'error');
+    });
+    const clearAll = page.getByRole('button', { name: 'Clear all' });
+    await expect(clearAll).toBeVisible();
+    const origin = page.getByRole('button', { name: NAME, exact: true });
+    await origin.focus();
+    await clearAll.focus();
+    await page.keyboard.press('Enter');
+    await expect(origin).toBeFocused();
+    await expect(page.locator('.mm-notify')).toHaveCount(0);
+    await expect(clearAll).toBeHidden();
+    await expect(origin).toBeFocused();
+  });
+
   // Review (2026-11-15): with `preventScroll` always, a keyboard's focus went back to a
   // button out of sight, its ring seen nowhere (WCAG 2.4.7).
   test('a keyboard focus comes into sight; a click on the cross moves no page', async ({

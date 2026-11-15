@@ -816,6 +816,34 @@ describe('toast: clear all', () => {
     nextFrame();
     expect(clearAllShown()).toBe(false);
   });
+
+  // Review (2026-11-15): it went with the focus on it, which then fell to the page's start.
+  it('gives the focus back where it came into the region from when it goes', () => {
+    toast('One', 'error');
+    toast('Two', 'error');
+    toast('Three', 'success');
+    nextFrame();
+    const origin = document.createElement('button');
+    document.body.prepend(origin);
+    origin.focus();
+    closeButton('One').focus();
+    clearAll().focus(); // from a message: still from the page's button
+    clearAll().click();
+    expect(clearAllShown()).toBe(false);
+    expect(document.activeElement).toBe(origin);
+
+    // Too few messages left for it, while the focus is on it.
+    toast('Four', 'error');
+    toast('Five', 'error');
+    toast('Six', 'success');
+    nextFrame();
+    clearAll().focus();
+    vi.advanceTimersByTime(4999);
+    expect(document.activeElement).toBe(clearAll());
+    vi.advanceTimersByTime(1);
+    expect(clearAllShown()).toBe(false);
+    expect(document.activeElement).toBe(origin);
+  });
 });
 
 describe('toast: hover and focus hold the timer', () => {

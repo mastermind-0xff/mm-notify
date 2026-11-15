@@ -278,7 +278,15 @@ function close(entry: Shown): void {
   shown.splice(at, 1);
   entry.end();
   const { item } = entry;
-  if (item.contains(document.activeElement)) giveBack();
+  showClearAll();
+  // The focus in it, or on a Clear all that goes with it (its own click, or too few
+  // messages left for it).
+  const { activeElement } = document;
+  if (
+    item.contains(activeElement) ||
+    (activeElement === clearAll && clearAll.classList.contains(OUT))
+  )
+    giveBack();
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
   // transition from the animation's values. So first what the box is now, applied.
@@ -296,7 +304,6 @@ function close(entry: Shown): void {
   // The CSS transition is 0.3s from the next frame, and reduced motion drops it. A
   // little longer, or a late frame leaves the last pixels to drop at the removal.
   setTimeout(remove, 350);
-  showClearAll();
   if (config.sequential && !at) shown[0]?.sync();
 }
 
