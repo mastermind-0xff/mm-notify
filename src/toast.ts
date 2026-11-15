@@ -273,7 +273,8 @@ let ids = 0;
 /**
  * Shows a notification and returns its handle, to change it later. The same kind
  * and text as one still on screen shows again only with `configure({ repeats:
- * true })`; otherwise that one starts over, and its handle is returned.
+ * true })`; otherwise that one starts over, and its handle is returned. A message
+ * with a progress bar is no such match: the call shows a message of its own.
  */
 export function toast(
   text: string,
@@ -285,9 +286,13 @@ export function toast(
     raise();
   }
   const ms = options.timeoutMs ?? config.durations[kind];
+  // A message with a progress bar is work in progress, never shared with other work.
   const same =
     text && !config.repeats ?
-      shown.find((e) => e.key === `${kind} ${text}`)
+      shown.find(
+        (e) =>
+          e.key === `${kind} ${text}` && !e.item.querySelector('.mm-notify-bar')
+      )
     : undefined;
   if (same) {
     same.again(options.announce !== false, ms);

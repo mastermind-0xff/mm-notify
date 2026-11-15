@@ -87,8 +87,9 @@ Options:
   on screen starts over, with the longer of its own time and the repeat's (`0`, until
   closed, is the longest), so a repeat never shortens it. Unless the repeat has
   `announce: false` it is read out again, also when it was shown with `announce: false`.
-  Its close label stays. `configure({ repeats: true })` shows every call as its own
-  message, the same text too. `showFlash` shows through `toast`, so the same rule applies.
+  Its close label stays. A message with a progress bar is no such match (see "Repeats"
+  below). `configure({ repeats: true })` shows every call as its own message, the same
+  text too. `showFlash` shows through `toast`, so the same rule applies.
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
 - The text goes through `textContent`. There are no HTML messages.
@@ -264,10 +265,13 @@ stop the work's updates; show a new `toast()` if the outcome must still be said.
   filled in a half tone, instead of the stretch that runs across it.
 
 **Repeats.** A `toast()` with the kind and text of a message on screen shows no second
-message and returns that message's handle (unless `configure({ repeats: true })`). Two
-pieces of work that start with the same text then share one message, and the last
-change wins: give them different texts ("Saving your address…", "Saving your card…") or
-turn on `repeats`. A repeat compares with what a message says now, after its updates.
+message and returns that message's handle (unless `configure({ repeats: true })`). A
+message with a progress bar is never that message: it is work in progress, so the same
+text shows a message of its own with its own handle, and each piece of work gets its own
+outcome. Once its bar is gone (`progress(false)`), it is a repeat target again. Two pieces
+of work that start with the same text and no bar still share one message, and the last
+change wins: give them different texts ("Saving your address…", "Saving your card…"), a
+bar, or turn on `repeats`. A repeat compares with what a message says now, after its updates.
 An update never merges messages: a message whose new words equal another's keeps its
 place, and both show; a later repeat goes to the older one. A closed message is no
 repeat target.

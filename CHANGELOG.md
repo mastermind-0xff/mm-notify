@@ -27,7 +27,10 @@ the notification"):
   `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no
   amount stands still.
 - **Repeats:** a repeat that shows no message returns the handle of the one on screen and
-  compares with what it says now; an update never merges two messages.
+  compares with what it says now; an update never merges two messages. A message with a
+  progress bar is never a repeat target (the user's N23, 2026-11-15): the same text shows a
+  message of its own, so two pieces of work never share one outcome; equal messages
+  without a bar still show once.
 - **New token** `--notify-log-height` (`8.4em`, six lines). A message is `flex-wrap: wrap`
   now (the bar and the log take a row each); nothing else changes for a message without
   them.

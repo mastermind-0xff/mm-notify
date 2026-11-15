@@ -1527,6 +1527,45 @@ describe('the handle toast returns', () => {
     const first = toast('Saving…');
     expect(toast('Saving…')).not.toBe(first);
   });
+
+  // The user's N23 (2026-11-15): work in progress is never shared with other work.
+  it('is a new message for the same text as one with a progress bar', () => {
+    const first = toast('Saving…').progress(true);
+    nextFrame();
+    const second = toast('Saving…');
+    expect(second).not.toBe(first);
+    nextFrame();
+    expect(texts()).toEqual(['Saving…', 'Saving…']);
+    // Each job's outcome reaches its own message.
+    first.replace('Saved.', 'success');
+    second.replace('Saving failed.', 'error');
+    expect(texts()).toEqual(['Saved.', 'Saving failed.']);
+  });
+
+  it('is a new message before the barred one is on screen too', () => {
+    const first = toast('Saving…').progress(0.2);
+    expect(toast('Saving…')).not.toBe(first);
+    nextFrame();
+    expect(showing()).toHaveLength(2);
+  });
+
+  it('is the one on screen again once its bar is gone', () => {
+    const job = toast('Saving…').progress(true);
+    nextFrame();
+    job.progress(false);
+    expect(toast('Saving…')).toBe(job);
+    expect(showing()).toHaveLength(1);
+  });
+
+  it('still shares equal messages without a bar, beside a barred one', () => {
+    const barred = toast('Saving…').progress(true);
+    const plain = toast('Saving…');
+    nextFrame();
+    expect(toast('Saving…')).toBe(plain);
+    expect(toast('Saving…')).not.toBe(barred);
+    nextFrame();
+    expect(showing()).toHaveLength(2);
+  });
 });
 
 describe('handle.update', () => {
