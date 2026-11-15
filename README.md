@@ -92,11 +92,16 @@ Options:
   text too. `showFlash` shows through `toast`, so the same rule applies.
 - The time runs only while neither the pointer nor the focus is on the message, and
   starts over in full when both have left.
-- A message that closes with the focus in it (its cross, or `close()` from code while the reader is on its cross or in its log) gives the focus back to
-  where it came from: the element that had it before it moved into the message, if that
-  is still on the page and focusable, without scrolling to it. Otherwise the focus falls
-  to the page as before (a keyboard user starts over at the top). `replace()` keeps the
-  focus in the message.
+- A message that closes with the focus in it (its cross, or `close()` from code while
+  the reader is on its cross or in its log) gives the focus back to where it came into
+  the notifications from: the page's element that had it before, if that is still on the
+  page and focusable. Moving from message to message keeps that element, so the focus
+  never goes back into another message, which may be gone by then. A keyboard's focus
+  comes into sight, as on Tab (`:focus-visible` tells it apart); a pointer's click on the
+  cross doesn't move the page (and in a browser without `:focus-visible` nothing moves).
+  Clear all does the same when it goes with the focus on it (its own click, or too few
+  messages left for it). Otherwise the focus falls to the page as before (a keyboard user
+  starts over at the top). `replace()` keeps the focus in the message.
 - The text goes through `textContent`. There are no HTML messages.
 - Screen readers: the messages sit in a polite live region, an error as `role="alert"`.
   With `announce: false` the message's own box is `aria-live="off"`, which takes it out of
@@ -452,13 +457,13 @@ loads no toast code.
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (4600 B for the package, a guard against accidental growth; 200 B for the eager check) or when the eager
-code would load another chunk. It also imports the built files on Node.
+budgets (4800 B for the package, a guard against accidental growth; 200 B for the eager
+check) or when the eager code would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 11882    | 4494 | 4000   |
-| `toast` alone             | 11392    | 4280 | 3808   |
+| The package, with its CSS | 12024    | 4556 | 4062   |
+| `toast` alone             | 11534    | 4338 | 3867   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
@@ -471,10 +476,12 @@ about 590 B, CSS included; 44 B of that from their review: forced colors, the vo
 before the frame), and the guard to 4350 B. The user then lifted the limit (2026-11-15:
 the package loads on first use), so it stays one entry (a separate one for the bar and the
 log would have kept the main one near 3800 B and cost about 1 KB where they are used), and
-the guard is 4600 B, there only to catch accidental growth. The user's answers of that
-day (a barred message is no repeat target, a silent message's words following its joining
-the live region, the box's edge under forced colors, the focus given back on closing)
-took it to 4494 B.
+the guard went to 4600 B, there only to catch accidental growth. The user's answers of
+that day (a barred message is no repeat target, a silent message's words following its
+joining the live region, the box's edge under forced colors, the focus given back on
+closing) took it to 4494 B, and their review's focus fixes (one origin for the stack, a
+keyboard's focus brought into sight, Clear all giving the focus back) to 4556 B; the
+guard is 4800 B, so that it keeps catching growth without a raise at every change.
 
 ## As a `file:` dependency
 

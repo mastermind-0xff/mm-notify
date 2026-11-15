@@ -25,8 +25,10 @@ const root = resolve(import.meta.dirname, '..');
 // CSS included; 3438 -> 4302 B; 4346 B after their review), raised by the agent and put
 // to the user (plan §7 N22). 4600 on 2026-11-15: the user lifted the limit ("Lift the
 // limit. This package is defer loaded."), so this number only catches accidental growth
-// (4494 B with the user's answers N23, N24, N26, N27 of that day).
-const BUDGETS = { package: 4600, eager: 200 };
+// (4494 B with the user's answers N23, N24, N26, N27 of that day). 4800 the same day, by
+// their review: its focus fixes (one origin for the region, a keyboard's focus in sight,
+// Clear all giving the focus back) took it to 4556 B, 44 B under 4600.
+const BUDGETS = { package: 4800, eager: 200 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>

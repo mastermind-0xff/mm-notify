@@ -32,10 +32,16 @@ the notification"):
   amount stands still.
 - **The focus after closing** (the user's N27, 2026-11-15): a message that closes with the
   focus in it (its cross, or `close()` from code while the reader is on its cross or in
-  its log) gives the focus back to where it came from (the `focusin`'s `relatedTarget`),
-  if that is still on the page and focusable, without scrolling; otherwise it falls to the
-  page as before. Before, the focus fell to `body` when the message was removed, for the
-  cross too. `replace` keeps the focus in the message.
+  its log) gives the focus back to where it came into the notifications from (the page's
+  element that had it before), if that is still on the page and focusable; otherwise it
+  falls to the page as before. Before, the focus fell to `body` when the message was
+  removed, for the cross too. `replace` keeps the focus in the message. From the review:
+  one such element for the whole stack, not one per message (a focus that came through
+  another message went back into it, and from there to `body`); a keyboard's focus comes
+  into sight, a pointer's click on the cross doesn't move the page (`:focus-visible`;
+  always `preventScroll` had left a keyboard's focus on a button scrolled out of sight);
+  Clear all gives the focus back too when it goes with the focus on it (its own click, or
+  too few messages left; before, the focus fell to `body`, also before this release).
 - **Repeats:** a repeat that shows no message returns the handle of the one on screen and
   compares with what it says now; an update never merges two messages. A message with a
   progress bar is never a repeat target (the user's N23, 2026-11-15): the same text shows a
@@ -52,11 +58,11 @@ the notification"):
   without forced colors. A log's panel is a lighter veil
   (white at 20 %), which keeps 4.5:1 on every default color (review: the darker one took
   the error red to 4.25:1).
-- `npm run size`: 4494 B (was 3438 B; 4302 B before the review's fixes, 4346 B after
-  them, 4494 B with the user's answers N23, N24, N26 and N27). The guard is
-  4600 B (was 3500 B): the user lifted the limit, since the package loads on first use
-  (2026-11-15); the guard only catches accidental growth. One entry, no separate
-  `@mmutils/notify/progress`.
+- `npm run size`: 4556 B (was 3438 B; 4302 B before the review's fixes, 4346 B after
+  them, 4494 B with the user's answers N23, N24, N26 and N27, 4556 B with their review's
+  focus fixes). The guard is 4800 B (was 3500 B): the user lifted the limit, since the
+  package loads on first use (2026-11-15); the guard only catches accidental growth. One
+  entry, no separate `@mmutils/notify/progress`.
 
 From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
 
