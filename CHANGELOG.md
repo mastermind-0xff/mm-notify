@@ -36,8 +36,10 @@ the notification"):
   vanished; the cross did before this release too). A log's panel is a lighter veil
   (white at 20 %), which keeps 4.5:1 on every default color (review: the darker one took
   the error red to 4.25:1).
-- `npm run size`: 4346 B (was 3438 B; 4302 B before the review's fixes), guard raised
-  from 3500 to 4350 B by the agent, a question for the user.
+- `npm run size`: 4346 B (was 3438 B; 4302 B before the review's fixes). The guard is
+  4600 B (was 3500 B): the user lifted the limit, since the package loads on first use
+  (2026-11-15); the guard only catches accidental growth. One entry, no separate
+  `@mmutils/notify/progress`.
 
 From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
 

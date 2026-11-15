@@ -434,7 +434,7 @@ loads no toast code.
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (4350 B for the package, a guard; 200 B for the eager check) or when the eager
+budgets (4600 B for the package, a guard against accidental growth; 200 B for the eager check) or when the eager
 code would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
@@ -450,9 +450,10 @@ took the package from 3049 B to 3438 B; the guard went from 3100 to 3500 B on th
 ("3500 is fine", on their earlier "size is not crucial": it loads on first use). The
 changing messages took it to 4346 B (the handle about 300 B, the progress bar and the log
 about 590 B, CSS included; 44 B of that from their review: forced colors, the voice
-before the frame), and the guard to 4350 B: raised by the agent, a question for the user
-(a separate entry for the bar and the log would keep the main one near 3800 B, and cost
-about 1 KB where they are used).
+before the frame), and the guard to 4350 B. The user then lifted the limit (2026-11-15:
+the package loads on first use), so it stays one entry (a separate one for the bar and the
+log would have kept the main one near 3800 B and cost about 1 KB where they are used), and
+the guard is 4600 B, there only to catch accidental growth.
 
 ## As a `file:` dependency
 

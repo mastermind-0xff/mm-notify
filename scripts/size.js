@@ -23,8 +23,9 @@ const root = resolve(import.meta.dirname, '..');
 // decision ("3500 is fine"), on their "size is not crucial". 4350 on 2026-11-14 for the
 // updatable messages (aesweets D49: the handle 304 B, the progress bar and the log 556 B,
 // CSS included; 3438 -> 4302 B; 4346 B after their review), raised by the agent and put
-// to the user (plan §7 N22).
-const BUDGETS = { package: 4350, eager: 200 };
+// to the user (plan §7 N22). 4600 on 2026-11-15: the user lifted the limit ("Lift the
+// limit. This package is defer loaded."), so this number only catches accidental growth.
+const BUDGETS = { package: 4600, eager: 200 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>
