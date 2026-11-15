@@ -357,6 +357,11 @@ default color and for a dark look's light text on dark colors. The log's panel a
 have no tokens: a rule as specific as `.mm-notify .mm-notify-log` changes them (the
 package's own sheet comes after the page's).
 
+Forced colors (Windows high contrast): the system's colors replace the message's color
+and glow, so the box has a transparent 1px outline, which forced colors draw in the
+text's color as its edge (nothing shows otherwise). The close cross and the progress bar,
+drawn as backgrounds, take the text's color there too.
+
 ### Position
 
 Top center is the default. A corner is a CSS-only change:

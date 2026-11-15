@@ -36,7 +36,10 @@ the notification"):
   them.
 - **Forced colors:** the progress bar and the close cross take the text's system color
   (review: both are backgrounds, which forced colors give the page's color, so both
-  vanished; the cross did before this release too). A log's panel is a lighter veil
+  vanished; the cross did before this release too). The message box has a transparent
+  1px outline, which forced colors draw as its edge (the user's N26, 2026-11-15: its color
+  and glow are gone there, so its words stood on the page's content); nothing shows
+  without forced colors. A log's panel is a lighter veil
   (white at 20 %), which keeps 4.5:1 on every default color (review: the darker one took
   the error red to 4.25:1).
 - `npm run size`: 4346 B (was 3438 B; 4302 B before the review's fixes). The guard is

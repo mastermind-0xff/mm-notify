@@ -161,6 +161,9 @@
   font-weight: 400;
   line-height: 1.4;
   border-radius: var(--notify-radius, 9px);
+  /* Invisible, but forced colors (Windows high contrast) draw it in the text's color:
+     there the box's color and glow are gone, and this is its edge. */
+  outline: 1px solid transparent;
   overflow: hidden;
   pointer-events: auto;
   animation: mm-notify-in 0.6s cubic-bezier(0.42, 0, 0.24, 0.99);

@@ -262,6 +262,11 @@ describe('notify.css', () => {
     );
   });
 
+  it('gives the box an edge only forced colors draw', () => {
+    // The user's N26 (2026-11-15): there the box's color and glow are gone.
+    expect(rule('.mm-notify')).toContain('outline: 1px solid transparent;');
+  });
+
   it('draws the progress bar in the text color, its value from toast.ts', () => {
     expect(own('.mm-notify-bar::after')).toContain(
       'transform: scaleX(var(--mm-notify-value, 0));'

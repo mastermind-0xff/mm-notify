@@ -159,6 +159,66 @@ test.describe('the progress bar', () => {
     expect(seen.track).toBe(seen.fill);
     expect(seen.cross).toBe(seen.fill);
   });
+
+  test('the box has an edge under forced colors, and none without', async ({
+    page,
+    problems,
+  }, testInfo) => {
+    // The user's N26 (2026-11-15): forced colors take the box's color and glow, so its
+    // words stood on the page over the page's content. A transparent outline, which
+    // forced colors draw in the text's color.
+    if (testInfo.project.name === 'webkit')
+      problems.provoked.push(
+        /Refused to apply a stylesheet|style-src-elem: inline/
+      );
+    const edge = () =>
+      page.evaluate((text) => {
+        window.t.settle();
+        const item = window.t.item(text);
+        const style = getComputedStyle(item);
+        return {
+          // WebKit matches the query when emulated but forces no colors (it has no
+          // forced colors mode): nothing to check there.
+          forced:
+            matchMedia('(forced-colors: active)').matches &&
+            CSS.supports('forced-color-adjust', 'none'),
+          style: style.outlineStyle,
+          width: style.outlineWidth,
+          color: style.outlineColor,
+          text: style.color,
+        };
+      }, UPLOAD);
+    await open(page);
+    await page.evaluate(async (text) => {
+      await window.t.job('upload', text, 'neutral', { timeoutMs: 0 });
+    }, UPLOAD);
+    const item = page.locator('.mm-notify');
+    await expect(item).toBeVisible();
+    const plain = await edge();
+    expect(plain).toMatchObject({ style: 'solid', width: '1px' });
+    expect(plain.color).toBe('rgba(0, 0, 0, 0)');
+    // Nothing to see without forced colors: the same pixels as with no outline at all.
+    await page.waitForTimeout(400);
+    const withEdge = await item.screenshot();
+    await item.evaluate((element) => {
+      element.style.outline = 'none';
+    });
+    const without = await item.screenshot();
+    expect(withEdge.equals(without)).toBe(true);
+    await item.evaluate((element) => {
+      element.style.outline = '';
+    });
+
+    await page.emulateMedia({ forcedColors: 'active' });
+    const forced = await edge();
+    if (!forced.forced) return;
+    expect(forced.style).toBe('solid');
+    expect(forced.color).not.toBe('rgba(0, 0, 0, 0)');
+    expect(forced.color).toBe(forced.text);
+    await page.screenshot({
+      path: `test-results/look/${testInfo.project.name}-forced-colors.png`,
+    });
+  });
 });
 
 test.describe('the log', () => {
