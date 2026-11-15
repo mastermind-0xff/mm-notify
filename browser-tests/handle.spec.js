@@ -198,12 +198,23 @@ test.describe('the progress bar', () => {
     expect(plain).toMatchObject({ style: 'solid', width: '1px' });
     expect(plain.color).toBe('rgba(0, 0, 0, 0)');
     // Nothing to see without forced colors: the same pixels as with no outline at all.
+    // Each one taken until two in a row agree: under load a shot can come before the
+    // frame is drawn in full (the review saw one such difference in Chrome).
+    const steady = async () => {
+      let shot = await item.screenshot();
+      for (let tries = 0; tries < 5; tries++) {
+        const next = await item.screenshot();
+        if (next.equals(shot)) break;
+        shot = next;
+      }
+      return shot;
+    };
     await page.waitForTimeout(400);
-    const withEdge = await item.screenshot();
+    const withEdge = await steady();
     await item.evaluate((element) => {
       element.style.outline = 'none';
     });
-    const without = await item.screenshot();
+    const without = await steady();
     expect(withEdge.equals(without)).toBe(true);
     await item.evaluate((element) => {
       element.style.outline = '';
