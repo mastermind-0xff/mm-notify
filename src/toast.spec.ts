@@ -167,6 +167,34 @@ describe('toast: how long it stays', () => {
     vi.advanceTimersByTime(50);
     expect(showing()).toHaveLength(0);
   });
+
+  // Browsers take a timer's delay as a 32-bit number: Infinity becomes 0, and 2^31 ms
+  // or more wraps around to a negative, which is 0 too. Such a message closed at once.
+  it.each([
+    ['Infinity', Infinity],
+    ['2^31', 2 ** 31],
+    ['a year', 365 * 24 * 3_600_000],
+  ])('stays with a timeoutMs of %s, beyond what a timer holds', (_name, ms) => {
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    toast('Stay', 'success', { timeoutMs: ms });
+    configure({ durations: { error: ms } });
+    toast('Stay too', 'error');
+    nextFrame();
+    vi.advanceTimersByTime(3_600_000);
+    expect(showing()).toHaveLength(2);
+    for (const [, delay] of timers.mock.calls)
+      expect(delay ?? 0).toBeLessThan(2 ** 31);
+  });
+
+  it.each([
+    ['NaN', NaN],
+    ['negative', -1],
+  ])('stays until closed with a timeoutMs that is %s', (_name, ms) => {
+    toast('Stay', 'success', { timeoutMs: ms });
+    nextFrame();
+    vi.advanceTimersByTime(3_600_000);
+    expect(showing()).toHaveLength(1);
+  });
 });
 
 describe('toast: the popover', () => {

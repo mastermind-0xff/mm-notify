@@ -449,8 +449,10 @@ export function toast(
     item,
     sync() {
       clearTimeout(timer);
+      // 2^31 ms or more (Infinity too) would overflow the timer and close at once.
       if (
         duration > 0 &&
+        duration < 2 ** 31 &&
         !holds &&
         !bar &&
         item.isConnected &&

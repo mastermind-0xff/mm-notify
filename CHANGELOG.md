@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+From the security check (2026-11-18):
+
+- A `timeoutMs` or `durations` value of 2^31 ms or more, `Infinity` included, keeps the
+  message until closed. It closed at once: browsers take a timer's delay as a 32-bit
+  number, so `Infinity` became 0 and 2^31 wrapped around to a negative.
+
 From the user's answer to aesweets.com D49 (2026-11-14: "It should be possible to update
 the notification"):
 
