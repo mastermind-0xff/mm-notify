@@ -11,7 +11,8 @@ code and its CSS arrive with the first message.
 - No side effects on import, no DOM access until the first call. It imports
   cleanly on the server.
 - The CSS comes with the module, so pages carry none of it inline, and it needs no
-  bundler plugin. A strict `style-src` doesn't block it.
+  bundler plugin. A strict `style-src` doesn't block it in browsers with
+  constructable stylesheets (see [The CSS](#the-css)).
 - A manual popover, so messages sit in the top layer. A browser without popover gets
   a plain fixed element and nothing throws.
 - A live region for screen readers, `role="alert"` for errors, DOM APIs only (passes
@@ -98,15 +99,18 @@ Options:
 
 | Option       | Default             | Meaning                                                                  |
 | ------------ | ------------------- | ------------------------------------------------------------------------ |
-| `timeoutMs`  | by kind             | Milliseconds on screen. `0` keeps it until closed.                       |
+| `timeoutMs`  | by kind             | Milliseconds on screen. `0` or `Infinity` keeps it until closed.         |
 | `announce`   | `true`              | `false`: not read out when it appears, when a status line says the same. |
 | `closeLabel` | `Close the message` | The close button's label.                                                |
 
 - Default durations: success and neutral 5 s, alert 8 s, error 10 s. Nothing stays
-  until closed unless asked: `timeoutMs: 0`, or `0` in `configure({ durations })`.
+  until closed unless asked: `timeoutMs: 0` or `Infinity`, or the same in
+  `configure({ durations })`. A time too long for a browser's timer (from 2^31 ms,
+  about 24.8 days) counts as `Infinity`: browsers would wrap it around and close the
+  message at once.
 - The same kind and text as a message still on screen shows no second message: the one
-  on screen starts over, with the longer of its own time and the repeat's (`0`, until
-  closed, is the longest), so a repeat never shortens it. Unless the repeat has
+  on screen starts over, with the longer of its own time and the repeat's (until
+  closed is the longest), so a repeat never shortens it. Unless the repeat has
   `announce: false` it is read out again, also when it was shown with `announce: false`.
   Its close label stays. A message with a progress bar is no such match (see "Repeats"
   below). `configure({ repeats: true })` shows every call as its own message, the same
@@ -348,7 +352,7 @@ export { flash, showFlash, toast } from '@mmutils/notify';
 | `closeLabel`    | `Close the message` | The close button's label, for screen readers.                                |
 | `clearAllLabel` | `Clear all`         | The clear-all button's text.                                                 |
 | `clearAllFrom`  | `3`                 | How many messages bring up that button. `0` or `Infinity`: never.            |
-| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.                  |
+| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` or `Infinity` keeps it until closed.    |
 | `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.               |
 | `sequential`    | `false`             | One timer at a time, see below.                                              |
 | `logLines`      | `100`               | How many lines a message's log keeps (`log()`), at least 1; `Infinity`: all. |
@@ -481,8 +485,8 @@ What a page pays, bundled by esbuild and minified for the browsers above:
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 12024    | 4556 | 4062   |
-| `toast` alone             | 11534    | 4338 | 3867   |
+| The package, with its CSS | 12053    | 4579 | 4083   |
+| `toast` alone             | 11573    | 4360 | 3896   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
