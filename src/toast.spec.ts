@@ -8,6 +8,7 @@ import type {
   flash as Flash,
   showFlash as ShowFlash,
   toast as Toast,
+  ToastHandle,
 } from './toast.js';
 
 const KINDS: readonly ToastKind[] = ['success', 'error', 'alert', 'neutral'];
@@ -2371,5 +2372,111 @@ describe('handle.close, closed and whenClosed', () => {
     toast('A new page');
     expect(job.closed).toBe(true);
     await expect(job.whenClosed).resolves.toBeUndefined();
+  });
+});
+
+// The performance check (2026-11-18): what a message leaves behind once it has gone.
+describe('perf: nothing kept after closing', () => {
+  it.each([
+    [
+      'its cross',
+      () => {
+        closeButton('Long').click();
+      },
+    ],
+    [
+      'close()',
+      (job: ToastHandle) => {
+        job.close();
+      },
+    ],
+    [
+      'Clear all',
+      () => {
+        clearAll().click();
+      },
+    ],
+  ] as const)('lets go of its timer when closed by %s', (_, how) => {
+    const job = toast('Long', 'error', { timeoutMs: 60_000 });
+    nextFrame();
+    how(job);
+    vi.advanceTimersByTime(350);
+    expect(items()).toEqual([]);
+    // Its own timer would keep the message, taken out of the page, for another minute.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('lets go of the timers of messages whose region left the page', () => {
+    toast('Long', 'error', { timeoutMs: 60_000 });
+    nextFrame();
+    region().remove();
+    toast('A new page', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('starts no time for a closing message the pointer or the focus leaves', () => {
+    const job = toast('Long', 'error', { timeoutMs: 60_000 });
+    nextFrame();
+    const item = items()[0]!;
+    fire(item, 'pointerenter', 'focusin');
+    job.close();
+    fire(item, 'pointerleave', 'focusout');
+    vi.advanceTimersByTime(350);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // 1000 took half a minute here (happy-dom's computed styles); 100 show the same.
+  it('keeps nothing of 100 messages shown and closed every way', async () => {
+    const observed = new Set<Element>();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe(element: Element): void {
+          observed.add(element);
+        }
+        unobserve(element: Element): void {
+          observed.delete(element);
+        }
+        disconnect(): void {
+          observed.clear();
+        }
+      }
+    );
+    await load();
+    configure({ repeats: true });
+    // The time first: its minute would take the other rounds' timers with it.
+    const ways: ((round: ToastHandle[]) => void)[] = [
+      () => {
+        vi.advanceTimersByTime(60_000);
+      },
+      (round) => {
+        for (const job of round) job.close();
+      },
+      () => {
+        clearAll().click();
+      },
+      () => {
+        for (const button of document.querySelectorAll('button'))
+          if (button !== clearAll()) button.click();
+      },
+    ];
+    const jobs: ToastHandle[] = [];
+    for (const way of ways) {
+      const round: ToastHandle[] = [];
+      for (let at = 0; at < 25; at += 1)
+        round.push(
+          toast(`Message ${String(at)}`, 'error', { timeoutMs: 60_000 })
+        );
+      nextFrame();
+      way(round);
+      vi.advanceTimersByTime(350);
+      jobs.push(...round);
+    }
+    vi.unstubAllGlobals();
+    expect(jobs.every((job) => job.closed)).toBe(true);
+    expect(list().childElementCount).toBe(0);
+    expect([...observed]).toEqual([list()]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

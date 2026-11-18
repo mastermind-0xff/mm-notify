@@ -454,6 +454,7 @@ export function toast(
         !holds &&
         !bar &&
         item.isConnected &&
+        !entry.closed &&
         (!config.sequential || shown[0] === entry)
       )
         timer = setTimeout(() => {
@@ -468,7 +469,9 @@ export function toast(
       if (announce) say(true);
       entry.sync();
     },
+    // Its timer would keep it, taken out of the page, until its time was up.
     end: () => {
+      clearTimeout(timer);
       end();
     },
     whenClosed: new Promise((resolve) => {

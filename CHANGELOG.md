@@ -120,6 +120,13 @@ From the aesweets.com integration review (2026-11-08):
   A message is `box-sizing: content-box` now, whatever the site sets.
 - `npm run size`: 3049 B, guard raised from 2800 to 3100 B.
 
+From the performance check (2026-11-18):
+
+- **Fixed:** a message closed before its time (its cross, `close()`, Clear all, its region
+  taken out of the page) kept its timer, and with it the message taken out of the page,
+  until the time would have run out (a minute for `timeoutMs: 60_000`); a pointer or focus
+  leaving a closing message started it again. The timer goes with the message now.
+
 ## 0.0.0 (unreleased)
 
 Nothing released yet. The plan is in `.claude/plan.md` (local).
