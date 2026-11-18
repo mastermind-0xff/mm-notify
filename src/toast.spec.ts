@@ -169,6 +169,49 @@ describe('toast: how long it stays', () => {
     vi.advanceTimersByTime(50);
     expect(showing()).toHaveLength(0);
   });
+
+  // Browsers take a timer's delay as a 32-bit number: Infinity becomes 0, and 2^31 ms
+  // or more wraps around to a negative, which is 0 too: such a message would close at once.
+  it.each([
+    ['Infinity', Infinity],
+    ['2^31', 2 ** 31],
+    ['a year', 365 * 24 * 3_600_000],
+  ])('stays with a timeoutMs of %s, beyond what a timer holds', (_name, ms) => {
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    toast('Stay', 'success', { timeoutMs: ms });
+    configure({ durations: { error: ms } });
+    toast('Stay too', 'error');
+    nextFrame();
+    vi.advanceTimersByTime(3_600_000);
+    expect(showing()).toHaveLength(2);
+    for (const [, delay] of timers.mock.calls)
+      expect(delay ?? 0).toBeLessThan(2 ** 31);
+  });
+
+  it.each([
+    ['NaN', NaN],
+    ['negative', -1],
+  ])('stays until closed with a timeoutMs that is %s', (_name, ms) => {
+    toast('Stay', 'success', { timeoutMs: ms });
+    nextFrame();
+    vi.advanceTimersByTime(3_600_000);
+    expect(showing()).toHaveLength(1);
+  });
+
+  it('stays when an update, a repeat or a removed bar asks for Infinity', () => {
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const updated = toast('Saving', 'neutral');
+    toast('Again', 'success');
+    const barred = toast('Uploading', 'alert', { timeoutMs: Infinity });
+    nextFrame();
+    updated.update('Still saving', undefined, { timeoutMs: Infinity });
+    toast('Again', 'success', { timeoutMs: Infinity }); // the longer time wins
+    barred.progress(0.5).progress(false); // the time starts over
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Still saving', 'Again', 'Uploading']);
+    for (const [, delay] of timers.mock.calls)
+      expect(delay ?? 0).toBeLessThan(2 ** 31);
+  });
 });
 
 describe('toast: the popover', () => {
@@ -478,7 +521,7 @@ describe('toast: the same text twice, by default', () => {
     expect(items()[0]!.getAttribute('role')).toBeNull();
     expect(textNode()).toBe(before);
     toast('Something went wrong.', 'error');
-    // In the live region first, the words (and the alert) 100 ms later (N24).
+    // In the live region first, the words (and the alert) 100 ms later.
     expect(items()[0]!.hasAttribute('aria-live')).toBe(false);
     expect(textNode()).toBe(before);
     vi.advanceTimersByTime(100);
@@ -819,7 +862,7 @@ describe('toast: clear all', () => {
     expect(clearAllShown()).toBe(false);
   });
 
-  // Review (2026-11-15): it went with the focus on it, which then fell to the page's start.
+  // It went with the focus on it, which then fell to the page's start.
   it('gives the focus back where it came into the region from when it goes', () => {
     toast('One', 'error');
     toast('Two', 'error');
@@ -1000,7 +1043,7 @@ describe('toast: closing', () => {
   });
 });
 
-// The user's N27 (2026-11-15): the focus in a closing message fell to the page's start.
+// The focus in a closing message fell to the page's start.
 describe('toast: the focus after closing', () => {
   /** A button on the page with the focus, then the focus in a message. */
   const start = (): { origin: HTMLButtonElement; cross: HTMLButtonElement } => {
@@ -1073,7 +1116,7 @@ describe('toast: the focus after closing', () => {
     expect(document.activeElement).not.toBe(next.origin);
   });
 
-  // Review (2026-11-15): each message kept its own origin, so a focus that came through
+  // Each message kept its own origin, so a focus that came through
   // another message went back there, and that message's origin became this one's cross.
   it('goes back to the page, not to a message it came through', () => {
     const one = toast('One', 'neutral', { timeoutMs: 0 });
@@ -1096,7 +1139,7 @@ describe('toast: the focus after closing', () => {
     expect(document.activeElement).toBe(origin);
   });
 
-  // Review (2026-11-15): with `preventScroll` always, a keyboard's focus could go back
+  // With `preventScroll` always, a keyboard's focus could go back
   // to a button scrolled out of sight, its ring seen nowhere (WCAG 2.4.7).
   it('brings a keyboard focus into sight, and leaves a pointer page in place', () => {
     const one = toast('One', 'neutral', { timeoutMs: 0 });
@@ -1434,7 +1477,7 @@ describe('toast: above popovers opened after it', () => {
   });
 });
 
-// Plan §4: found by reading the original code, each reproduced here first.
+// Found by reading the code, each reproduced here first.
 describe('fix: browsers without popover', () => {
   beforeEach(() => {
     undoBrowser();
@@ -1511,7 +1554,7 @@ describe('fix: the timer only runs when nothing holds it', () => {
   });
 });
 
-// Found while porting: not in plan §4, same treatment.
+// Found along the way, same treatment.
 describe('fix: a removal between opening and the next frame', () => {
   it('still shows the new toast', () => {
     toast('Old');
@@ -1664,6 +1707,39 @@ describe('showFlash', () => {
       expect(document.querySelector('img')).toBeNull();
       expect(items()[0]!.querySelector('p')!.textContent).toContain('<img');
     });
+
+    it('takes only the four kinds, whatever configure was given', () => {
+      // A page's own JS can pass any key; only the four have an icon and a look.
+      configure({ durations: { custom: 1000 } as never });
+      sessionStorage.setItem(KEY, '{"text":"Hi","kind":"custom"}');
+      showFlash();
+      nextFrame();
+      expect(items()[0]!.className).toBe('mm-notify mm-notify-neutral');
+    });
+
+    it.each([
+      ['__proto__', '{"__proto__":{"text":"Hi","kind":"error","polluted":1}}'],
+      [
+        'constructor',
+        '{"constructor":{"prototype":{"text":"Hi","polluted":1}}}',
+      ],
+    ])('reads no text through %s and pollutes nothing', (_name, stored) => {
+      sessionStorage.setItem(KEY, stored);
+      showFlash();
+      nextFrame();
+      expect(items()).toHaveLength(0);
+      expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+      expect(({} as Record<string, unknown>)['text']).toBeUndefined();
+    });
+
+    it('shows a long text as it is, through textContent', () => {
+      const text = '\u202e<b>x</b>'.repeat(100_000);
+      sessionStorage.setItem(KEY, JSON.stringify({ text, kind: 'alert' }));
+      expect(showFlash).not.toThrow();
+      nextFrame();
+      expect(items()[0]!.querySelector('p')!.textContent).toBe(text);
+      expect(document.querySelector('b')).toBeNull();
+    });
   });
 
   describe('storage failures', () => {
@@ -1692,7 +1768,7 @@ describe('showFlash', () => {
   });
 });
 
-// The answer to aesweets D49 (2026-11-14): "It should be possible to update the notification."
+// A message can be updated in place: the handle.
 describe('the handle toast returns', () => {
   it('has the methods and is open while the message is up', () => {
     const job = toast('Saving…');
@@ -1727,7 +1803,7 @@ describe('the handle toast returns', () => {
     expect(toast('Saving…')).not.toBe(first);
   });
 
-  // The user's N23 (2026-11-15): work in progress is never shared with other work.
+  // Work in progress is never shared with other work.
   it('is a new message for the same text as one with a progress bar', () => {
     const first = toast('Saving…').progress(true);
     nextFrame();
@@ -1873,7 +1949,7 @@ describe('handle.update', () => {
   });
 
   it('keeps the voice it came with before its frame: an announced message arrives announced', () => {
-    // Review 2026-11-14: the first update often comes before the frame (a fast first
+    // The first update often comes before the frame (a fast first
     // answer, a tab in the background, where frames wait), and silenced the message.
     const job = toast('Exporting…').update('Exporting 1 of 12…');
     toast('Still saving…', 'neutral', { announce: false }).update(
@@ -1948,16 +2024,16 @@ describe('handle.update', () => {
     const item = items()[0]!;
     vi.spyOn(item, 'scrollHeight', 'get').mockReturnValue(120);
     job.log('A line that makes it taller');
-    // At the frame, once for all the changes until then (the performance check).
+    // At the next frame, once for all the changes until then.
     nextFrame();
     expect(item.style.getPropertyValue('--mm-notify-height')).toBe('120px');
     vi.restoreAllMocks();
   });
 });
 
-// N24 (the user's "do what you think is best", 2026-11-15): a message that was silent
-// joins the live region first, and its words follow 100 ms later, as aesweets' status
-// lines do, so no screen reader misses the words that come with the change.
+// A message that was silent joins the live region first, and its words follow 100 ms
+// later, the way a status line is made reliable, so no screen reader misses the words
+// that come with the change.
 describe('handle: the words follow when a silent message is read out again', () => {
   const node = (item: HTMLElement): Node | null =>
     item.querySelector('p')!.firstChild;
@@ -2059,7 +2135,7 @@ describe('handle.replace', () => {
     nextFrame();
     job.replace('Uploaded.', 'success');
     const item = items()[0]!;
-    // Unannounced before: its words follow its joining the live region (N24).
+    // Unannounced before: its words follow its joining the live region.
     vi.advanceTimersByTime(100);
     expect(texts()).toEqual(['Uploaded.']);
     expect(item.className).toBe('mm-notify mm-notify-success');
@@ -2235,7 +2311,7 @@ describe('handle.log', () => {
   it.each([0, -1])(
     'keeps the newest line with logLines %d: never an empty log, never a hang',
     (logLines) => {
-      // Review 2026-11-14: 0 emptied the log, below 0 the trimming never stopped.
+      // 0 emptied the log, below 0 the trimming never stopped.
       configure({ logLines });
       toast('Deploying…').log('Line 1').log('Line 2');
       nextFrame();
@@ -2263,7 +2339,7 @@ describe('handle.log', () => {
     nextFrame();
     log().scrollTop = 10; // at the end
     job.log('4');
-    nextFrame(); // once a frame, for all the lines until then (the performance check)
+    nextFrame(); // once a frame, for all the lines until then
     expect(log().scrollTop).toBe(80);
     log().scrollTop = 5; // the reader went up
     job.log('5');
@@ -2414,7 +2490,7 @@ describe('handle.close, closed and whenClosed', () => {
   });
 });
 
-// The performance check (2026-11-18): what a message leaves behind once it has gone.
+// What a message leaves behind once it has gone.
 describe('perf: nothing kept after closing', () => {
   it.each([
     [
@@ -2520,9 +2596,8 @@ describe('perf: nothing kept after closing', () => {
   });
 });
 
-// The performance check (2026-11-18): a layout read after a change makes the browser lay
-// the page out there and then. Counted with test-utils/layout.ts (happy-dom lays nothing
-// out); measured in Chrome too (plan, the check's entry).
+// A layout read after a change makes the browser lay the page out there and then.
+// Counted with test-utils/layout.ts (happy-dom lays nothing out).
 describe('perf: layouts forced by reading after a change', () => {
   let count: LayoutCount;
   beforeEach(() => {

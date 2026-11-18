@@ -8,12 +8,23 @@
     "flash",
     "popover",
     "aria-live",
+    "snackbar",
+    "progress",
+    "accessibility",
     "browser",
     "typescript",
     "mmutils"
   ],
   "author": "Tihomir Trifonov",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mastermind-0xff/mm-notify.git"
+  },
+  "homepage": "https://github.com/mastermind-0xff/mm-notify#readme",
+  "bugs": {
+    "url": "https://github.com/mastermind-0xff/mm-notify/issues"
+  },
   "type": "module",
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",

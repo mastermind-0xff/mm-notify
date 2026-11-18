@@ -1,6 +1,6 @@
 /**
  * `npm run size` (after the build): what a page pays, measured the way a site
- * bundles the package (esbuild, minified, for the browsers aesweets supports),
+ * bundles the package (esbuild, minified, for the browsers it supports),
  * then gzipped. Fails above the budgets, or when one of the promises the
  * package makes about loading doesn't hold:
  *
@@ -16,22 +16,9 @@ import { build } from 'esbuild';
 import { minifiedCss } from './css-text.js';
 
 const root = resolve(import.meta.dirname, '..');
-// The package loads on first use, so its size is a guard rather than a hard limit
-// (the author's call). The eager check runs on every page: that budget is the real one.
-// 2800 became 3100 on 2026-11-08 for the aesweets fixes (pinned clear all, repeats), and
-// 3500 on 2026-11-10 for the scrolling stack with its fades and the raise: the user's
-// decision ("3500 is fine"), on their "size is not crucial". 4350 on 2026-11-14 for the
-// updatable messages (aesweets D49: the handle 304 B, the progress bar and the log 556 B,
-// CSS included; 3438 -> 4302 B; 4346 B after their review), raised by the agent and put
-// to the user (plan §7 N22). 4600 on 2026-11-15: the user lifted the limit ("Lift the
-// limit. This package is defer loaded."), so this number only catches accidental growth
-// (4494 B with the user's answers N23, N24, N26, N27 of that day). 4800 the same day, by
-// their review: its focus fixes (one origin for the region, a keyboard's focus in sight,
-// Clear all giving the focus back) took it to 4556 B, 44 B under 4600. 5000 on
-// 2026-11-18, by the performance check: batching the page's reads and writes (the
-// messages of a frame, Clear all, the times that run out together, a changing message's
-// height and log once a frame) and letting go of a closed message's timer took it to
-// 4803 B; raised by the agent, put to the user.
+// The package loads on first use, so its size is a guard rather than a hard limit: it
+// only catches accidental growth, and is raised on purpose when a feature earns it. The
+// eager check runs on every page: that budget is the real one.
 const BUDGETS = { package: 5000, eager: 200 };
 const problems = [];
 

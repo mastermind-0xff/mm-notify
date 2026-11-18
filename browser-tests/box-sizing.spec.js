@@ -1,5 +1,5 @@
 /**
- * A site with `box-sizing: border-box` on everything (aesweets' base.css): the growth
+ * A site with `box-sizing: border-box` on everything (a common reset): the growth
  * must not jump. Before the fix the box eased to its height without the padding, the
  * text cut off, then snapped to its full height and moved the stack.
  */

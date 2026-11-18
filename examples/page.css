@@ -41,7 +41,7 @@
   --notify-width: min(24rem, calc(100vw - 2rem));
 }
 
-/* What a site with a sticky header does (aesweets: 4.25rem and 7.5rem). */
+/* What a site with a sticky header does: the stack starts below it. */
 :root[data-position='under-header'] {
   --notify-top: 4rem;
 }

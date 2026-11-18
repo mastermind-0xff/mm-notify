@@ -1,5 +1,5 @@
 /**
- * The handle `toast()` returns (aesweets D49): a progress bar, a log, updates, and what
+ * The handle `toast()` returns: a progress bar, a log, updates, and what
  * happens after the reader closed the message. Then the example page's background work,
  * against its pretend backend (examples/jobs.js), in real time.
  */
@@ -132,7 +132,7 @@ test.describe('the progress bar', () => {
   });
 
   test('shows under forced colors, as the cross does', async ({ page }) => {
-    // Review 2026-11-14: forced colors give backgrounds the page's color, and the bar
+    // Forced colors give backgrounds the page's color, and the bar
     // and the cross are drawn as backgrounds: both vanished (Chromium).
     await page.emulateMedia({ forcedColors: 'active' });
     await open(page);
@@ -164,7 +164,7 @@ test.describe('the progress bar', () => {
     page,
     problems,
   }, testInfo) => {
-    // The user's N26 (2026-11-15): forced colors take the box's color and glow, so its
+    // Forced colors take the box's color and glow, so its
     // words stood on the page over the page's content. A transparent outline, which
     // forced colors draw in the text's color.
     if (testInfo.project.name === 'webkit')
@@ -199,7 +199,7 @@ test.describe('the progress bar', () => {
     expect(plain.color).toBe('rgba(0, 0, 0, 0)');
     // Nothing to see without forced colors: the same pixels as with no outline at all.
     // Each one taken until two in a row agree: under load a shot can come before the
-    // frame is drawn in full (the review saw one such difference in Chrome).
+    // frame is drawn in full (one such difference was seen in Chrome).
     const steady = async () => {
       let shot = await item.screenshot();
       for (let tries = 0; tries < 5; tries++) {
@@ -277,7 +277,7 @@ test.describe('the log', () => {
     await expect(page.getByText('Line 30')).toBeInViewport();
 
     // A reader scrolls up: a new line leaves them where they are. The log follows at the
-    // next frame, once for all the lines until then (the performance check): two frames.
+    // next frame, once for all the lines until then: two frames.
     await page.evaluate(async () => {
       document.querySelector('.mm-notify-log').scrollTop = 0;
       window.t.jobs.deploy.log('Line 31');
@@ -316,7 +316,7 @@ test.describe('the log', () => {
   });
 });
 
-// The user's N27 (2026-11-15): the focus in a closing message fell to the page's start.
+// The focus in a closing message fell to the page's start.
 test.describe('the focus after closing', () => {
   const NAME = 'Neutral';
 
@@ -375,7 +375,7 @@ test.describe('the focus after closing', () => {
     );
   });
 
-  // Review (2026-11-15): with an origin per message, closing the one the focus came
+  // With an origin per message, closing the one the focus came
   // through handed it back to the other, whose origin then became a closed cross: body.
   test('goes back to the page, not to a message it came through', async ({
     page,
@@ -402,7 +402,7 @@ test.describe('the focus after closing', () => {
     await expect(origin).toBeFocused();
   });
 
-  // Review (2026-11-15): Clear all went with the focus on it, which fell to the body.
+  // Clear all went with the focus on it, which fell to the body.
   test('Clear all gives it back when it goes', async ({ page }) => {
     await open(page);
     await page.evaluate(async () => {
@@ -421,7 +421,7 @@ test.describe('the focus after closing', () => {
     await expect(origin).toBeFocused();
   });
 
-  // Review (2026-11-15): with `preventScroll` always, a keyboard's focus went back to a
+  // With `preventScroll` always, a keyboard's focus went back to a
   // button out of sight, its ring seen nowhere (WCAG 2.4.7).
   test('a keyboard focus comes into sight; a click on the cross moves no page', async ({
     page,
@@ -480,7 +480,7 @@ test.describe('the focus after closing', () => {
   });
 });
 
-// N24 (2026-11-15): a silent message read out again joins the live region first; its
+// A silent message read out again joins the live region first; its
 // words follow 100 ms later, so no screen reader misses them with the change of voice.
 test('a silent message that is read out again: live first, its words 100 ms later', async ({
   page,
@@ -517,7 +517,7 @@ test('a silent message that is read out again: live first, its words 100 ms late
   });
 });
 
-// The user's N23 (2026-11-15): work in progress is never shared with other work.
+// Work in progress is never shared with other work.
 test('the same text as a message with a progress bar shows a message of its own', async ({
   page,
 }) => {
@@ -610,7 +610,7 @@ test('the accessibility tree: a named progress bar, a log, read out only when as
     await page.evaluate(() =>
       window.t.jobs.upload.replace('The upload failed.', 'error')
     );
-    // Its kind, words and alert follow its joining the live region by 100 ms (N24).
+    // Its kind, words and alert follow its joining the live region by 100 ms.
     await expect(page.getByRole('alert')).toHaveText('The upload failed.');
     nodes = await tree();
     expect(live().sort()).toEqual(['assertive', 'polite']);
@@ -632,7 +632,7 @@ test('the accessibility tree: a named progress bar, a log, read out only when as
 test('an update before the frame keeps the announcement it came with', async ({
   page,
 }) => {
-  // Review 2026-11-14: a first update before the frame (a fast answer, a tab in the
+  // A first update before the frame (a fast answer, a tab in the
   // background) silenced a message that was to be read out.
   await open(page);
   const seen = await page.evaluate(async () => {
@@ -752,7 +752,7 @@ test.describe('the example page, its pretend backend', () => {
   });
 });
 
-// Review 2026-11-14: a bar holds its message until the outcome, and the examples (and
+// A bar holds its message until the outcome, and the examples (and
 // the README's patterns) had ways to end without one: a "Still saving…" or a bar that
 // stayed up for good after the network failed.
 test.describe('the example page when the network fails', () => {

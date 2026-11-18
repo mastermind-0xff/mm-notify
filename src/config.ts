@@ -9,7 +9,7 @@ export interface NotifyConfig {
   readonly clearAllLabel?: string;
   /** How many messages bring up the clear-all button. `0` or `Infinity`: never. */
   readonly clearAllFrom?: number;
-  /** Milliseconds on screen per kind; 0 keeps it until closed. */
+  /** Milliseconds on screen per kind; 0 or `Infinity` keeps it until closed. */
   readonly durations?: Readonly<Partial<Record<ToastKind, number>>>;
   /** Off when the page loads `@mmutils/notify/notify.css` itself. */
   readonly injectCss?: boolean;
@@ -31,12 +31,19 @@ export interface NotifyConfig {
   readonly sequential?: boolean;
 }
 
-/** The current values (package internal). */
+/**
+ * The current values (package internal). Neither these nor `durations` have a
+ * prototype: `Object.assign` would take a "__proto__" key of options parsed from
+ * JSON as a new one. The type leaves that key out of the declarations, and still
+ * wants a default for every option.
+ */
 export const config = {
+  __proto__: null,
   closeLabel: 'Close the message',
   clearAllLabel: 'Clear all',
   clearAllFrom: 3,
   durations: {
+    __proto__: null,
     success: 5000,
     neutral: 5000,
     alert: 8000,
@@ -46,6 +53,8 @@ export const config = {
   logLines: 100,
   repeats: false,
   sequential: false,
+} as Required<Omit<NotifyConfig, 'durations'>> & {
+  durations: Record<ToastKind, number>;
 };
 
 /** Changes the defaults. Only the given values change. */
