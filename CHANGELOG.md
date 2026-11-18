@@ -9,6 +9,8 @@ From the security check (2026-11-18):
   number, so `Infinity` became 0 and 2^31 wrapped around to a negative.
 - `showFlash` takes only the four kinds from storage. A key that a page's own JS added to
   `configure({ durations })` was taken too, and showed with no icon and no look.
+- `configure` with options parsed from JSON: a `"__proto__"` key no longer becomes the
+  settings' prototype (no global pollution before either).
 
 From the user's answer to aesweets.com D49 (2026-11-14: "It should be possible to update
 the notification"):

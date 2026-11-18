@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { config, configure } from './config.js';
+import { config, configure, type NotifyConfig } from './config.js';
 
 const defaults = structuredClone(config);
 
@@ -30,5 +30,21 @@ describe('configure', () => {
     expect(config.durations.error).toBe(9000);
     expect(config.durations.alert).toBe(8000);
     expect(config.durations.success).toBe(5000);
+  });
+
+  it('pollutes no prototype with options parsed from JSON', () => {
+    configure(
+      JSON.parse(
+        '{"__proto__":{"polluted":1},"constructor":{"prototype":{"polluted":2}},' +
+          '"durations":{"__proto__":{"polluted":3},"success":4000}}'
+      ) as NotifyConfig
+    );
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    // Nor do the settings inherit from what was given.
+    expect((config as Record<string, unknown>)['polluted']).toBeUndefined();
+    expect(
+      (config.durations as Record<string, unknown>)['polluted']
+    ).toBeUndefined();
+    expect(config.durations.success).toBe(4000);
   });
 });

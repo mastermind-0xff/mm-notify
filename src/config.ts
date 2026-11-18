@@ -31,12 +31,18 @@ export interface NotifyConfig {
   readonly sequential?: boolean;
 }
 
-/** The current values (package internal). */
+/**
+ * The current values (package internal). No prototype, here and in `durations`:
+ * options parsed from JSON may have a "__proto__" key, which `Object.assign` would
+ * otherwise take as a new prototype.
+ */
 export const config = {
+  __proto__: null,
   closeLabel: 'Close the message',
   clearAllLabel: 'Clear all',
   clearAllFrom: 3,
   durations: {
+    __proto__: null,
     success: 5000,
     neutral: 5000,
     alert: 8000,
