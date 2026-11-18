@@ -61,7 +61,7 @@ notifications of aesweets.com.
 - A changing message (`update`, `replace`, `progress`, `log`) sets the height it grows
   to and its log's scroll to the newest line at the next frame, once for all the changes
   until then: 100 changes in a row take under 1 ms. Whether the reader scrolled the log
-  up is read before the frame's first new line.
+  up is read at that frame too, so lines faster than frames never pull a reader back.
 - A message closed before its time (its cross, `close()`, Clear all, its region taken
   out of the page) stops its timer at once: nothing keeps it after it has gone.
 

@@ -2327,14 +2327,32 @@ describe('handle.log', () => {
     expect(rows()[0]).toBe('Line 51');
   });
 
-  it('stays at its end for the newest line, unless the reader scrolled up', () => {
-    // Each line 20 px in a box 50 px tall.
+  /**
+   * Lays the log out as a browser would: each line 20 px tall in a box 50 px tall at
+   * the top of the page, moved up by its scrollTop. The rest of the page has no size.
+   */
+  const layOut = (): void => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(50);
     vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
       function (this: Element) {
         return 20 * this.childElementCount;
       }
     );
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
+      function (this: Element) {
+        const box = this.parentElement!;
+        if (this.classList.contains('mm-notify-log'))
+          return new DOMRect(0, 0, 200, 50);
+        if (!box.classList.contains('mm-notify-log'))
+          return new DOMRect(0, 0, 0, 0);
+        const at = [...box.children].indexOf(this);
+        return new DOMRect(0, 20 * at - box.scrollTop, 200, 20);
+      }
+    );
+  };
+
+  it('stays at its end for the newest line, unless the reader scrolled up', () => {
+    layOut();
     const job = toast('Deploying…').log('1').log('2').log('3');
     nextFrame();
     log().scrollTop = 10; // at the end
@@ -2348,13 +2366,8 @@ describe('handle.log', () => {
     vi.restoreAllMocks();
   });
 
-  it('takes where the reader was before the first line of a frame, for all its lines', () => {
-    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(50);
-    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
-      function (this: Element) {
-        return 20 * this.childElementCount;
-      }
-    );
+  it('takes where the reader is at the frame, for all the lines until then', () => {
+    layOut();
     const job = toast('Deploying…').log('1').log('2').log('3');
     nextFrame();
     log().scrollTop = 10; // at the end; the next lines would leave it behind
@@ -2365,10 +2378,35 @@ describe('handle.log', () => {
     job.log('7').log('8');
     nextFrame();
     expect(log().scrollTop).toBe(5);
+    // At the end at the first line, and gone up before the frame: up it stays (lines
+    // come faster than frames, and a wheel's scroll reaches the page at a frame).
+    log().scrollTop = 110;
+    job.log('9');
+    log().scrollTop = 60;
+    job.log('10');
+    nextFrame();
+    expect(log().scrollTop).toBe(60);
     // A new log (`replace`, then `log`) is at its end again.
     job.replace('Again').log('1');
     nextFrame();
     expect(log().scrollTop).toBe(20);
+    vi.restoreAllMocks();
+  });
+
+  it('follows when the lines of a frame are more than it keeps', () => {
+    configure({ logLines: 3 });
+    layOut();
+    const job = toast('Deploying…').log('1').log('2').log('3');
+    nextFrame();
+    log().scrollTop = 10; // at the end
+    job.log('4').log('5'); // two old lines go: the first new one is the second kept
+    nextFrame();
+    expect(log().scrollTop).toBe(60);
+    log().scrollTop = 0; // the reader went up, then every line they saw goes
+    for (let line = 6; line <= 10; line += 1) job.log(String(line));
+    nextFrame();
+    expect(log().scrollTop).toBe(60);
+    expect(rows()).toEqual(['8', '9', '10']);
     vi.restoreAllMocks();
   });
 
@@ -2676,7 +2714,7 @@ describe('perf: layouts forced by reading after a change', () => {
   it('lays out a changing message once a frame, however many changes', () => {
     const job = toast('Working', 'neutral', { timeoutMs: 0 });
     nextFrame();
-    // One where its log is, before the frame's first line; one in the frame.
+    // Once, in the frame: where its log is, its height.
     expect(
       forced(() => {
         for (let step = 0; step < 100; step += 1)
@@ -2686,7 +2724,7 @@ describe('perf: layouts forced by reading after a change', () => {
             .log(`Line ${String(step)}`);
         nextFrame();
       })
-    ).toBe(2);
+    ).toBe(1);
     expect(texts()).toEqual(['Step 99']);
   });
 });

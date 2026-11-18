@@ -413,8 +413,8 @@ export function toast(
   let now = text;
   /** The words (with their kind) waiting to follow a change of voice. */
   let later: ReturnType<typeof setTimeout> | undefined;
-  /** Whether its log was at its end before the frame's first new line; unread: unset. */
-  let atEnd: boolean | undefined;
+  /** Lines logged since its last frame: the first of them tells where the reader was. */
+  let logged = 0;
   /** A frame is asked for, to settle the changes (`grow`). */
   let settling = false;
   /**
@@ -473,7 +473,7 @@ export function toast(
       if (lines?.contains(document.activeElement)) button.focus();
       bar?.remove();
       lines?.remove();
-      bar = lines = atEnd = undefined;
+      bar = lines = undefined;
     }
     button.setAttribute(
       'aria-label',
@@ -494,9 +494,9 @@ export function toast(
   };
   /**
    * A message still growing grows to its contents (an overestimate is harmless), and a
-   * log at its end shows its newest line. At the next frame, once for all the changes
-   * until then: read at each, the browser would lay the message out at each. Before
-   * its first frame, `arrive` does both.
+   * log the reader left at its end shows its newest line. At the next frame, once for all
+   * the changes until then: read at each, the browser would lay the message out at each.
+   * Before its first frame, `arrive` does both.
    */
   const grow = (): void => {
     if (settling || !item.isConnected) return;
@@ -504,8 +504,18 @@ export function toast(
     requestAnimationFrame(() => {
       settling = false;
       if (entry.closed) return;
-      if (lines && atEnd) lines.scrollTop = lines.scrollHeight;
-      atEnd = undefined;
+      // At its end before the new lines (or all of them are new): the first new line
+      // starts in sight. Read here, not at the line: until the frame, a reader may scroll up.
+      if (lines && logged) {
+        const first = lines.children[lines.childElementCount - logged];
+        if (
+          !first ||
+          first.getBoundingClientRect().top <=
+            lines.getBoundingClientRect().bottom + 1
+        )
+          lines.scrollTop = lines.scrollHeight;
+      }
+      logged = 0;
       item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
     });
   };
@@ -565,6 +575,7 @@ export function toast(
     },
     arrived() {
       if (lines) lines.scrollTop = lines.scrollHeight;
+      logged = 0;
     },
     whenClosed: new Promise((resolve) => {
       end = resolve;
@@ -627,13 +638,11 @@ export function toast(
         );
         item.append(lines);
       }
-      // At its end (or new): stays at its end, the newest in sight. Scrolled up: stays.
-      if (item.isConnected)
-        atEnd ??=
-          lines.scrollTop + lines.clientHeight >= lines.scrollHeight - 2;
       const row = document.createElement('div');
       row.textContent = line;
       lines.append(row);
+      // At its end (or new), its frame keeps it there, the newest in sight (`grow`).
+      logged += 1;
       // At least the newest: 0 or less would empty it, and below 0 never stop.
       while (lines.childElementCount > Math.max(1, config.logLines))
         lines.firstElementChild?.remove();
