@@ -503,10 +503,7 @@ export function toast(
       if (entry.closed) return;
       if (lines && atEnd) lines.scrollTop = lines.scrollHeight;
       atEnd = undefined;
-      item.style.setProperty(
-        '--mm-notify-height',
-        `${String(item.scrollHeight)}px`
-      );
+      item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
     });
   };
   /** After any change: grow to it, and start the time over. */

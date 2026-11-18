@@ -27,8 +27,12 @@ const root = resolve(import.meta.dirname, '..');
 // limit. This package is defer loaded."), so this number only catches accidental growth
 // (4494 B with the user's answers N23, N24, N26, N27 of that day). 4800 the same day, by
 // their review: its focus fixes (one origin for the region, a keyboard's focus in sight,
-// Clear all giving the focus back) took it to 4556 B, 44 B under 4600.
-const BUDGETS = { package: 4800, eager: 200 };
+// Clear all giving the focus back) took it to 4556 B, 44 B under 4600. 5000 on
+// 2026-11-18, by the performance check: batching the page's reads and writes (the
+// messages of a frame, Clear all, the times that run out together, a changing message's
+// height and log once a frame) and letting go of a closed message's timer took it to
+// 4803 B; raised by the agent, put to the user.
+const BUDGETS = { package: 5000, eager: 200 };
 const problems = [];
 
 const bundle = (contents, options = {}) =>

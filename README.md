@@ -457,13 +457,13 @@ loads no toast code.
 ## Size
 
 `npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (4800 B for the package, a guard against accidental growth; 200 B for the eager
+budgets (5000 B for the package, a guard against accidental growth; 200 B for the eager
 check) or when the eager code would load another chunk. It also imports the built files on Node.
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 12024    | 4556 | 4062   |
-| `toast` alone             | 11534    | 4338 | 3867   |
+| The package, with its CSS | 12731    | 4803 | 4297   |
+| `toast` alone             | 12239    | 4583 | 4103   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
@@ -480,8 +480,11 @@ the guard went to 4600 B, there only to catch accidental growth. The user's answ
 that day (a barred message is no repeat target, a silent message's words following its
 joining the live region, the box's edge under forced colors, the focus given back on
 closing) took it to 4494 B, and their review's focus fixes (one origin for the stack, a
-keyboard's focus brought into sight, Clear all giving the focus back) to 4556 B; the
-guard is 4800 B, so that it keeps catching growth without a raise at every change.
+keyboard's focus brought into sight, Clear all giving the focus back) to 4556 B, and the
+guard to 4800 B, so that it keeps catching growth without a raise at every change. The
+performance check (2026-11-18) took it to 4803 B: many messages at once, Clear all and a
+changing message now lay the page out once a frame instead of once or twice per message
+(see the CHANGELOG); the guard is 5000 B.
 
 ## As a `file:` dependency
 
