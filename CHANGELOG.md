@@ -48,8 +48,7 @@ notifications of aesweets.com.
   which needs `'unsafe-inline'` under a CSP. `@mmutils/notify/notify.css`
   is the plain file, `@mmutils/notify/css` exports it as a minified string, and
   `configure({ injectCss: false })` leaves the loading to the page.
-- About 4.8 KB minified and gzipped with its CSS, 123 B for the eager check. ESM and
-  CommonJS builds with type declarations; no runtime dependencies.
+- About 4.8 KB minified and gzipped with its CSS, 123 B for the eager check.
 
 ### Work on the page
 
@@ -83,3 +82,10 @@ notifications of aesweets.com.
   closing message gives the focus back to where it came from.
 - The repository's design tool exports a look as CSS, as settings or as a brief for an
   agent.
+
+### Package
+
+- ESM and CommonJS, one file per module, no runtime dependencies, Node.js 22 or newer.
+  Type declarations for both: `.d.ts` for `import`, `.d.cts` for `require` (TypeScript's
+  `node16` and `nodenext` read a `.d.ts` in this package as ESM), and `typesVersions` for
+  `has-flash` and `css` under the older `node10` resolution.

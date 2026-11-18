@@ -459,6 +459,9 @@ configure({ injectCss: false });
 ```
 
 The string stays in the JS in that case, so this is about control, not bytes.
+TypeScript 6 checks side-effect imports by default (`noUncheckedSideEffectImports`),
+and a `.css` file has no types: a project without a `declare module '*.css';` (many
+bundler setups have one) adds that line to a `.d.ts` file of its own.
 
 ## Browsers
 

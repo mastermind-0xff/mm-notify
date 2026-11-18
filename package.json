@@ -31,22 +31,47 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./has-flash": {
-      "types": "./dist/types/has-flash.d.ts",
-      "import": "./dist/esm/has-flash.js",
-      "require": "./dist/cjs/has-flash.cjs"
+      "import": {
+        "types": "./dist/types/has-flash.d.ts",
+        "default": "./dist/esm/has-flash.js"
+      },
+      "require": {
+        "types": "./dist/types/has-flash.d.cts",
+        "default": "./dist/cjs/has-flash.cjs"
+      }
     },
     "./css": {
-      "types": "./dist/types/css.d.ts",
-      "import": "./dist/esm/css.js",
-      "require": "./dist/cjs/css.cjs"
+      "import": {
+        "types": "./dist/types/css.d.ts",
+        "default": "./dist/esm/css.js"
+      },
+      "require": {
+        "types": "./dist/types/css.d.cts",
+        "default": "./dist/cjs/css.cjs"
+      }
     },
     "./notify.css": "./dist/notify.css",
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "has-flash": [
+        "./dist/types/has-flash.d.ts"
+      ],
+      "css": [
+        "./dist/types/css.d.ts"
+      ]
+    }
   },
   "files": [
     "dist",
@@ -62,7 +87,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "npm run clean && rollup -c && tsc -p tsconfig.build.json && node -e \"require('fs').copyFileSync('src/notify.css','dist/notify.css')\"",
+    "build": "npm run clean && rollup -c && tsc -p tsconfig.build.json && node -e \"require('fs').copyFileSync('src/notify.css','dist/notify.css')\" && node scripts/build-cjs-types.js",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "vitest run",
     "test:watch": "vitest",
