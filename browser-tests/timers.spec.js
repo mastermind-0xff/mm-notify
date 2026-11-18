@@ -32,7 +32,7 @@ for (const kind of ['success', 'neutral']) {
   });
 }
 
-// Nothing stays until closed by default : alert 8 s, error 10 s.
+// Nothing stays until closed by default: alert 8 s, error 10 s.
 for (const [kind, ms] of [
   ['alert', 8_000],
   ['error', 10_000],

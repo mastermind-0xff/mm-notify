@@ -1,5 +1,5 @@
 /**
- * The handle `toast()` returns : a progress bar, a log, updates, and what
+ * The handle `toast()` returns: a progress bar, a log, updates, and what
  * happens after the reader closed the message. Then the example page's background work,
  * against its pretend backend (examples/jobs.js), in real time.
  */
