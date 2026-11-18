@@ -13,7 +13,10 @@ export interface ToastOptions {
    * button, only not announced.
    */
   readonly announce?: boolean;
-  /** Milliseconds on screen; 0 keeps it until closed. Default by kind. */
+  /**
+   * Milliseconds on screen; 0 or `Infinity` keeps it until closed. Default: the
+   * kind's (`configure({ durations })`).
+   */
   readonly timeoutMs?: number;
   /** The close button's label. Default: `configure({ closeLabel })`. */
   readonly closeLabel?: string;

@@ -169,7 +169,7 @@ describe('toast: how long it stays', () => {
   });
 
   // Browsers take a timer's delay as a 32-bit number: Infinity becomes 0, and 2^31 ms
-  // or more wraps around to a negative, which is 0 too. Such a message closed at once.
+  // or more wraps around to a negative, which is 0 too: such a message would close at once.
   it.each([
     ['Infinity', Infinity],
     ['2^31', 2 ** 31],
@@ -194,6 +194,21 @@ describe('toast: how long it stays', () => {
     nextFrame();
     vi.advanceTimersByTime(3_600_000);
     expect(showing()).toHaveLength(1);
+  });
+
+  it('stays when an update, a repeat or a removed bar asks for Infinity', () => {
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const updated = toast('Saving', 'neutral');
+    toast('Again', 'success');
+    const barred = toast('Uploading', 'alert', { timeoutMs: Infinity });
+    nextFrame();
+    updated.update('Still saving', undefined, { timeoutMs: Infinity });
+    toast('Again', 'success', { timeoutMs: Infinity }); // the longer time wins
+    barred.progress(0.5).progress(false); // the time starts over
+    vi.advanceTimersByTime(3_600_000);
+    expect(texts()).toEqual(['Still saving', 'Again', 'Uploading']);
+    for (const [, delay] of timers.mock.calls)
+      expect(delay ?? 0).toBeLessThan(2 ** 31);
   });
 });
 
