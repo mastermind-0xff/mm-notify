@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- About 4.5 KB minified and gzipped, CSS included. No dependencies.
+- About 4.8 KB minified and gzipped, CSS included. No dependencies.
 - A message can change while it is up: new words or a new kind, a progress bar, a
   console-like log. Work in the background is tracked in one message that becomes
   its outcome.
@@ -489,8 +489,8 @@ What a page pays, bundled by esbuild and minified for the browsers above:
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
-| The package, with its CSS | 12053    | 4579 | 4083   |
-| `toast` alone             | 11573    | 4360 | 3896   |
+| The package, with its CSS | 12816    | 4851 | 4340   |
+| `toast` alone             | 12334    | 4634 | 4148   |
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
