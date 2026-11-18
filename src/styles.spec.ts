@@ -255,7 +255,7 @@ describe('notify.css', () => {
   });
 
   it('draws the cross and the bar in the text color under forced colors', () => {
-    // Review 2026-11-14: backgrounds take the page's color there, and both vanished.
+    // Backgrounds take the page's color there, and both vanished.
     const media = code.slice(code.indexOf('@media (forced-colors: active)'));
     expect(media).toMatch(
       /\.mm-notify-close::before,\s*\.mm-notify-close::after,\s*\.mm-notify-bar::before,\s*\.mm-notify-bar::after \{\s*background: CanvasText;/
@@ -263,7 +263,7 @@ describe('notify.css', () => {
   });
 
   it('gives the box an edge only forced colors draw', () => {
-    // The user's N26 (2026-11-15): there the box's color and glow are gone.
+    // There the box's color and glow are gone.
     expect(rule('.mm-notify')).toContain('outline: 1px solid transparent;');
   });
 
@@ -400,7 +400,7 @@ describe('notify.css', () => {
     const hex = (values: number[]): string =>
       `#${values.map((value) => Math.round(value).toString(16).padStart(2, '0')).join('')}`;
 
-    // Review 2026-11-14: a darker panel (black at 8 %) took the error red to 4.25:1.
+    // A darker panel (black at 8 %) took the error red to 4.25:1.
     it.each(['success', 'error', 'alert', 'neutral'])(
       'keeps 4.5:1 for a log on %s: its panel over the box, the text on it',
       (kind) => {

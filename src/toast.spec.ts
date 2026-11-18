@@ -476,7 +476,7 @@ describe('toast: the same text twice, by default', () => {
     expect(items()[0]!.getAttribute('role')).toBeNull();
     expect(textNode()).toBe(before);
     toast('Something went wrong.', 'error');
-    // In the live region first, the words (and the alert) 100 ms later (N24).
+    // In the live region first, the words (and the alert) 100 ms later.
     expect(items()[0]!.hasAttribute('aria-live')).toBe(false);
     expect(textNode()).toBe(before);
     vi.advanceTimersByTime(100);
@@ -817,7 +817,7 @@ describe('toast: clear all', () => {
     expect(clearAllShown()).toBe(false);
   });
 
-  // Review (2026-11-15): it went with the focus on it, which then fell to the page's start.
+  // It went with the focus on it, which then fell to the page's start.
   it('gives the focus back where it came into the region from when it goes', () => {
     toast('One', 'error');
     toast('Two', 'error');
@@ -998,7 +998,7 @@ describe('toast: closing', () => {
   });
 });
 
-// The user's N27 (2026-11-15): the focus in a closing message fell to the page's start.
+// The focus in a closing message fell to the page's start.
 describe('toast: the focus after closing', () => {
   /** A button on the page with the focus, then the focus in a message. */
   const start = (): { origin: HTMLButtonElement; cross: HTMLButtonElement } => {
@@ -1071,7 +1071,7 @@ describe('toast: the focus after closing', () => {
     expect(document.activeElement).not.toBe(next.origin);
   });
 
-  // Review (2026-11-15): each message kept its own origin, so a focus that came through
+  // Each message kept its own origin, so a focus that came through
   // another message went back there, and that message's origin became this one's cross.
   it('goes back to the page, not to a message it came through', () => {
     const one = toast('One', 'neutral', { timeoutMs: 0 });
@@ -1094,7 +1094,7 @@ describe('toast: the focus after closing', () => {
     expect(document.activeElement).toBe(origin);
   });
 
-  // Review (2026-11-15): with `preventScroll` always, a keyboard's focus could go back
+  // With `preventScroll` always, a keyboard's focus could go back
   // to a button scrolled out of sight, its ring seen nowhere (WCAG 2.4.7).
   it('brings a keyboard focus into sight, and leaves a pointer page in place', () => {
     const one = toast('One', 'neutral', { timeoutMs: 0 });
@@ -1432,7 +1432,7 @@ describe('toast: above popovers opened after it', () => {
   });
 });
 
-// Plan §4: found by reading the original code, each reproduced here first.
+// Found by reading the code, each reproduced here first.
 describe('fix: browsers without popover', () => {
   beforeEach(() => {
     undoBrowser();
@@ -1509,7 +1509,7 @@ describe('fix: the timer only runs when nothing holds it', () => {
   });
 });
 
-// Found while porting: not in plan §4, same treatment.
+// Found along the way, same treatment.
 describe('fix: a removal between opening and the next frame', () => {
   it('still shows the new toast', () => {
     toast('Old');
@@ -1690,7 +1690,7 @@ describe('showFlash', () => {
   });
 });
 
-// The answer to aesweets D49 (2026-11-14): "It should be possible to update the notification."
+// A message can be updated in place: the handle.
 describe('the handle toast returns', () => {
   it('has the methods and is open while the message is up', () => {
     const job = toast('Saving…');
@@ -1725,7 +1725,7 @@ describe('the handle toast returns', () => {
     expect(toast('Saving…')).not.toBe(first);
   });
 
-  // The user's N23 (2026-11-15): work in progress is never shared with other work.
+  // Work in progress is never shared with other work.
   it('is a new message for the same text as one with a progress bar', () => {
     const first = toast('Saving…').progress(true);
     nextFrame();
@@ -1871,7 +1871,7 @@ describe('handle.update', () => {
   });
 
   it('keeps the voice it came with before its frame: an announced message arrives announced', () => {
-    // Review 2026-11-14: the first update often comes before the frame (a fast first
+    // The first update often comes before the frame (a fast first
     // answer, a tab in the background, where frames wait), and silenced the message.
     const job = toast('Exporting…').update('Exporting 1 of 12…');
     toast('Still saving…', 'neutral', { announce: false }).update(
@@ -1951,9 +1951,9 @@ describe('handle.update', () => {
   });
 });
 
-// N24 (the user's "do what you think is best", 2026-11-15): a message that was silent
-// joins the live region first, and its words follow 100 ms later, as aesweets' status
-// lines do, so no screen reader misses the words that come with the change.
+// A message that was silent joins the live region first, and its words follow 100 ms
+// later, the way a status line is made reliable, so no screen reader misses the words
+// that come with the change.
 describe('handle: the words follow when a silent message is read out again', () => {
   const node = (item: HTMLElement): Node | null =>
     item.querySelector('p')!.firstChild;
@@ -2055,7 +2055,7 @@ describe('handle.replace', () => {
     nextFrame();
     job.replace('Uploaded.', 'success');
     const item = items()[0]!;
-    // Unannounced before: its words follow its joining the live region (N24).
+    // Unannounced before: its words follow its joining the live region.
     vi.advanceTimersByTime(100);
     expect(texts()).toEqual(['Uploaded.']);
     expect(item.className).toBe('mm-notify mm-notify-success');
@@ -2231,7 +2231,7 @@ describe('handle.log', () => {
   it.each([0, -1])(
     'keeps the newest line with logLines %d: never an empty log, never a hang',
     (logLines) => {
-      // Review 2026-11-14: 0 emptied the log, below 0 the trimming never stopped.
+      // 0 emptied the log, below 0 the trimming never stopped.
       configure({ logLines });
       toast('Deploying…').log('Line 1').log('Line 2');
       nextFrame();

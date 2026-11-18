@@ -372,9 +372,9 @@ export function toast(
    * Read out or not, from now on, and the words. Unannounced: its own box is no live
    * region, which takes it out of the list's (the nearest `aria-live` counts). Not
    * `aria-hidden`: its close button is focusable. A message on the page that was
-   * unannounced joins the live region first and its words follow 100 ms later, as
-   * aesweets' status lines do: a screen reader may miss words that come with the
-   * change (N24). Words waiting for that take the latest.
+   * unannounced joins the live region first and its words follow 100 ms later, the
+   * way a status line is made reliable: a screen reader may miss words that come
+   * with the change. Words waiting for that take the latest.
    */
   const say = (loud: boolean): void => {
     const joins =
