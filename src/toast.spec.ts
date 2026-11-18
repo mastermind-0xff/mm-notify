@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentBrowser, isOpen, olderBrowser } from './test-utils/browsers.js';
+import { countLayouts, type LayoutCount } from './test-utils/layout.js';
 import type { configure as Configure, ToastKind } from './config.js';
 import type {
   flash as Flash,
@@ -2478,5 +2479,61 @@ describe('perf: nothing kept after closing', () => {
     expect(list().childElementCount).toBe(0);
     expect([...observed]).toEqual([list()]);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// The performance check (2026-11-18): a layout read after a change makes the browser lay
+// the page out there and then. Counted with test-utils/layout.ts (happy-dom lays nothing
+// out); measured in Chrome too (plan, the check's entry).
+describe('perf: layouts forced by reading after a change', () => {
+  let count: LayoutCount;
+  beforeEach(() => {
+    configure({ repeats: true });
+    toast('Before');
+    nextFrame();
+    vi.advanceTimersByTime(5350);
+    count = countLayouts();
+  });
+  afterEach(() => {
+    count.undo();
+  });
+  /** The layouts `run` forces, after a frame laid the page out. */
+  const forced = (run: () => void): number => {
+    count.frame();
+    const before = count.forced;
+    run();
+    return count.forced - before;
+  };
+
+  it('lays out once for all the messages of a frame, however many', () => {
+    expect(
+      forced(() => {
+        for (let at = 0; at < 50; at += 1) toast(`Message ${String(at)}`);
+        nextFrame();
+      })
+    ).toBe(1);
+    expect(showing()).toHaveLength(50);
+  });
+
+  it('lays out twice for Clear all, however many it closes', () => {
+    for (let at = 0; at < 50; at += 1) toast(`Message ${String(at)}`);
+    nextFrame();
+    expect(
+      forced(() => {
+        clearAll().click();
+      })
+    ).toBe(2);
+    expect(showing()).toEqual([]);
+  });
+
+  it('lays out once to close a message: the box as it is now', () => {
+    toast('One');
+    nextFrame();
+    expect(
+      forced(() => {
+        vi.advanceTimersByTime(5000);
+      })
+    ).toBe(1);
+    expect(showing()).toEqual([]);
   });
 });

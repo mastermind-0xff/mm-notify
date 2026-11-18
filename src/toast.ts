@@ -130,6 +130,8 @@ interface Shown extends ToastHandle {
   readonly again: (announce: boolean, ms: number) => void;
   /** Fulfils `whenClosed`. */
   readonly end: () => void;
+  /** On the page at last: the newest of the lines logged before is in sight. */
+  readonly arrived: () => void;
 }
 
 /** What is on screen or about to be, oldest first. */
@@ -203,7 +205,9 @@ function showClearAll(): void {
     OUT,
     !config.clearAllFrom || shown.length < config.clearAllFrom
   );
-  clearAll.textContent = config.clearAllLabel;
+  // Only a new label (`configure`): a new text node is a change the browser lays out.
+  if (clearAll.textContent !== config.clearAllLabel)
+    clearAll.textContent = config.clearAllLabel;
 }
 
 /** The region, created once, so screen readers notice what's added to its list later. */
@@ -218,7 +222,7 @@ function ownRegion(): void {
   region = shape('div', { class: 'mm-notify-region', popover: 'manual' }, true);
   list = shape('div', { class: 'mm-notify-list', 'aria-live': 'polite' }, true);
   clearAll = makeButton('mm-notify-clear', () => {
-    [...shown].forEach(close);
+    close(...shown);
   });
   showClearAll();
   region.append(list, clearAll);
@@ -272,43 +276,95 @@ function giveBack(): void {
   if (origin?.isConnected) origin.focus({ preventScroll: !keys });
 }
 
-function close(entry: Shown): void {
-  const at = shown.indexOf(entry);
-  if (at < 0) return;
-  shown.splice(at, 1);
-  entry.end();
-  const { item } = entry;
+/**
+ * Closes these messages: one, or every one for Clear all. All of them at once, the
+ * page read before it is changed, so the browser lays it out twice, not twice for each.
+ */
+function close(...entries: Shown[]): void {
+  const going = entries.filter((entry) => shown.includes(entry));
+  if (!going.length) return;
+  const oldest = shown[0];
+  shown = shown.filter((entry) => !going.includes(entry));
+  for (const entry of going) entry.end();
   showClearAll();
-  // The focus in it, or on a Clear all that goes with it (its own click, or too few
+  // The focus in one, or on a Clear all that goes with them (its own click, or too few
   // messages left for it).
   const { activeElement } = document;
   if (
-    item.contains(activeElement) ||
+    going.some(({ item }) => item.contains(activeElement)) ||
     (activeElement === clearAll && clearAll.classList.contains(OUT))
   )
     giveBack();
   // A transition starts from the current value. Max-height's is far above the height,
   // and the box wouldn't shrink until it got there; while growing, the browser doesn't
-  // transition from the animation's values. So first what the box is now, applied.
-  const now = getComputedStyle(item);
-  const { zIndex } = item.style;
-  item.style.cssText = `animation:none;max-height:${now.height};padding-block:${now.paddingBlock};margin-bottom:${now.marginBottom};opacity:${now.opacity};transform:${now.transform}`;
-  item.getBoundingClientRect();
-  item.style.cssText = `z-index:${zIndex}`;
-  item.classList.add(OUT);
-  const remove = (): void => {
-    item.remove();
-    watch?.unobserve(item);
-    if (!list.childElementCount) setOpen(false);
-  };
+  // transition from the animation's values. So first what each box is now, applied.
+  const boxes = going.map(({ item }) => {
+    const now = getComputedStyle(item);
+    return {
+      item,
+      zIndex: item.style.zIndex,
+      now: `animation:none;max-height:${now.height};padding-block:${now.paddingBlock};margin-bottom:${now.marginBottom};opacity:${now.opacity};transform:${now.transform}`,
+    };
+  });
+  for (const { item, now } of boxes) item.style.cssText = now;
+  // The first read lays them out, the others find it done.
+  for (const { item } of boxes) item.getBoundingClientRect();
+  for (const { item, zIndex } of boxes) {
+    item.style.cssText = `z-index:${zIndex}`;
+    item.classList.add(OUT);
+  }
   // The CSS transition is 0.3s from the next frame, and reduced motion drops it. A
   // little longer, or a late frame leaves the last pixels to drop at the removal.
-  setTimeout(remove, 350);
-  if (config.sequential && !at) shown[0]?.sync();
+  setTimeout(() => {
+    for (const { item } of boxes) {
+      item.remove();
+      watch?.unobserve(item);
+    }
+    if (!list.childElementCount) setOpen(false);
+  }, 350);
+  // The oldest went: the next one's time, when sequential.
+  if (config.sequential && shown[0] !== oldest) shown[0]?.sync();
 }
 
 /** Numbers the messages' texts, which name their progress bars. */
 let ids = 0;
+
+/** Messages waiting for the next frame, oldest first. */
+let arriving: Shown[] = [];
+
+/**
+ * The next frame: an addition to an existing live region is what screen readers
+ * announce. All of a frame's messages come in together, the page changed first and
+ * read after, so the browser lays it out once for them, not twice for each.
+ */
+function arrive(): void {
+  // Not the ones cleared before their frame.
+  const entries = arriving.filter(({ item }) => !item.classList.contains(OUT));
+  arriving = [];
+  if (!entries.length) return;
+  ownRegion();
+  // The start of the stack, where `--notify-flow` puts it.
+  for (const { item } of entries) list.prepend(item);
+  setOpen(true); // an earlier toast's removal may have closed it since
+  // What each grows to, moving the stack smoothly: CSS can't animate to `auto`.
+  const heights = entries.map(({ item }) => item.scrollHeight);
+  for (const entry of entries) entry.arrived();
+  // A glow falls downwards, so the lower message must paint over the upper. Prepending
+  // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
+  const up = reversed();
+  // The newest in sight, unless someone is in the list: the keyboard, whose focus stays
+  // in sight, or the pointer, which would find another message under it (and close
+  // that one with the click it was about to make).
+  if (!list.matches(':hover') && !list.contains(document.activeElement))
+    list.scrollTop = 0;
+  entries.forEach((entry, at) => {
+    const { item } = entry;
+    item.style.setProperty('--mm-notify-height', `${String(heights[at])}px`);
+    if (up) item.style.zIndex = String(++depth);
+    watch?.observe(item);
+    entry.sync();
+  });
+}
 
 /**
  * Shows a notification and returns its handle, to change it later. The same kind
@@ -474,6 +530,9 @@ export function toast(
       clearTimeout(timer);
       end();
     },
+    arrived() {
+      if (lines) lines.scrollTop = lines.scrollHeight;
+    },
     whenClosed: new Promise((resolve) => {
       end = resolve;
     }),
@@ -567,27 +626,8 @@ export function toast(
 
   showClearAll();
   setOpen(true);
-  // The next frame: an addition to an existing live region is what screen readers announce.
-  requestAnimationFrame(() => {
-    if (item.classList.contains(OUT)) return; // cleared before its frame
-    ownRegion();
-    list.prepend(item); // the start of the stack, where `--notify-flow` puts it
-    // What it grows to, moving the stack smoothly: CSS can't animate to `auto`.
-    item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
-    // Lines logged before it was on the page: the newest in sight.
-    if (lines) lines.scrollTop = lines.scrollHeight;
-    // A glow falls downwards, so the lower message must paint over the upper. Prepending
-    // gives that in `column`; `column-reverse` shows the DOM upside down, so it needs this.
-    if (reversed()) item.style.zIndex = String(++depth);
-    setOpen(true); // an earlier toast's removal may have closed it since
-    // The newest in sight, unless someone is in the list: the keyboard, whose focus stays
-    // in sight, or the pointer, which would find another message under it (and close
-    // that one with the click it was about to make).
-    if (!list.matches(':hover') && !list.contains(document.activeElement))
-      list.scrollTop = 0;
-    watch?.observe(item);
-    entry.sync();
-  });
+  if (!arriving.length) requestAnimationFrame(arrive);
+  arriving.push(entry);
   return entry;
 }
 

@@ -126,6 +126,12 @@ From the performance check (2026-11-18):
   taken out of the page) kept its timer, and with it the message taken out of the page,
   until the time would have run out (a minute for `timeoutMs: 60_000`); a pointer or focus
   leaving a closing message started it again. The timer goes with the message now.
+- **Many messages at once:** the messages of one frame come into the page together, and
+  Clear all closes its messages together, each read before anything changes: the browser
+  lays the page out once (Clear all: twice) instead of twice per message. Measured in
+  Chrome on a page of 1500 paragraphs: 200 messages in one frame took 215 ms, now 38 ms;
+  Clear all of 200 took 648 ms, now 21 ms (50: 64 ms, now 8 ms). Closing one message lays
+  out once, not twice (Clear all's label is no longer written again on every change).
 
 ## 0.0.0 (unreleased)
 
