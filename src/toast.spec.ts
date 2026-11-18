@@ -1690,6 +1690,39 @@ describe('showFlash', () => {
       expect(document.querySelector('img')).toBeNull();
       expect(items()[0]!.querySelector('p')!.textContent).toContain('<img');
     });
+
+    it('takes only the four kinds, whatever configure was given', () => {
+      // A page's own JS can pass any key; only the four have an icon and a look.
+      configure({ durations: { custom: 1000 } as never });
+      sessionStorage.setItem(KEY, '{"text":"Hi","kind":"custom"}');
+      showFlash();
+      nextFrame();
+      expect(items()[0]!.className).toBe('mm-notify mm-notify-neutral');
+    });
+
+    it.each([
+      ['__proto__', '{"__proto__":{"text":"Hi","kind":"error","polluted":1}}'],
+      [
+        'constructor',
+        '{"constructor":{"prototype":{"text":"Hi","polluted":1}}}',
+      ],
+    ])('reads no text through %s and pollutes nothing', (_name, stored) => {
+      sessionStorage.setItem(KEY, stored);
+      showFlash();
+      nextFrame();
+      expect(items()).toHaveLength(0);
+      expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+      expect(({} as Record<string, unknown>)['text']).toBeUndefined();
+    });
+
+    it('shows a long text as it is, through textContent', () => {
+      const text = '\u202e<b>x</b>'.repeat(100_000);
+      sessionStorage.setItem(KEY, JSON.stringify({ text, kind: 'alert' }));
+      expect(showFlash).not.toThrow();
+      nextFrame();
+      expect(items()[0]!.querySelector('p')!.textContent).toBe(text);
+      expect(document.querySelector('b')).toBeNull();
+    });
   });
 
   describe('storage failures', () => {

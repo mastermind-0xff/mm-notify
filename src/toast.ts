@@ -623,7 +623,7 @@ export function showFlash(key = FLASH_KEY): void {
   if (typeof text === 'string')
     toast(
       text,
-      typeof kind === 'string' && Object.hasOwn(config.durations, kind) ?
+      typeof kind === 'string' && Object.hasOwn(ICONS, kind) ?
         (kind as ToastKind)
       : 'neutral'
     );
