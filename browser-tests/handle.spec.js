@@ -276,18 +276,25 @@ test.describe('the log', () => {
     expect(seen.item).toBeLessThan(seen.max);
     await expect(page.getByText('Line 30')).toBeInViewport();
 
-    // A reader scrolls up: a new line leaves them where they are.
-    await page.evaluate(() => {
+    // A reader scrolls up: a new line leaves them where they are. The log follows at the
+    // next frame, once for all the lines until then (the performance check): two frames.
+    await page.evaluate(async () => {
       document.querySelector('.mm-notify-log').scrollTop = 0;
       window.t.jobs.deploy.log('Line 31');
+      await new Promise((done) => {
+        requestAnimationFrame(() => requestAnimationFrame(done));
+      });
     });
     seen = await logState(page);
     expect(seen.top).toBe(0);
     // Back at the end: it follows again.
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const log = document.querySelector('.mm-notify-log');
       log.scrollTop = log.scrollHeight;
       window.t.jobs.deploy.log('Line 32');
+      await new Promise((done) => {
+        requestAnimationFrame(() => requestAnimationFrame(done));
+      });
     });
     expect((await logState(page)).atEnd).toBe(true);
   });
