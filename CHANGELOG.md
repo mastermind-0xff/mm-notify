@@ -129,8 +129,9 @@ From the performance check (2026-11-18):
 - **Many messages at once:** the messages of one frame come into the page together, and
   Clear all closes its messages together, each read before anything changes: the browser
   lays the page out once (Clear all: twice) instead of twice per message. Measured in
-  Chrome on a page of 1500 paragraphs: 200 messages in one frame took 215 ms, now 38 ms;
-  Clear all of 200 took 648 ms, now 21 ms (50: 64 ms, now 8 ms). Closing one message lays
+  Chrome on a page of 1500 paragraphs (three runs): 200 messages in one frame took 87 to
+  215 ms, now 20 to 38 ms; Clear all of 200 took 263 to 648 ms, now 15 to 21 ms (50: 28 to
+  64 ms, now 4 to 8 ms). Closing one message lays
   out once, not twice (Clear all's label is no longer written again on every change).
 - **Changing a message** (`update`, `replace`, `progress`, `log`, the words that follow a
   change of voice): the height a message still growing grows to, and a log's newest line
