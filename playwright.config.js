@@ -4,7 +4,7 @@
  * type-checked rules and the published files: plain JS in `browser-tests`.
  *
  * On 127.0.0.1 and a port of its own, not 5179: another host is another storage, and
- * the user's own server may be on 5179. The server builds first and stops at the end.
+ * a development server may be on 5179. The server builds first and stops at the end.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

@@ -13,7 +13,7 @@ import { transformSync } from 'esbuild';
 const file = resolve(import.meta.dirname, '../src/notify.css');
 const id = '\0notify-css';
 
-/** The browsers aesweets supports (its `build/js.ts`), the first consumer. */
+/** The browsers this package supports, the targets the CSS is minified for. */
 const target = ['chrome100', 'firefox100', 'safari15.4'];
 
 /** esbuild leaves the fallbacks in `var()` as written; these have no strings in them. */

@@ -143,7 +143,7 @@ on('#steps', async () => {
   job.update('Your invoice is on its way.', 'success');
 });
 
-// The aesweets D49 pattern: a progress message only past 2 s, then the outcome.
+// A slow request: a progress message only past 2 s, then the outcome.
 const status = document.querySelector('#status');
 
 async function request(ms, fails) {

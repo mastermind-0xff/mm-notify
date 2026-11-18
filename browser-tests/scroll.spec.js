@@ -1,8 +1,8 @@
 /**
- * A stack taller than its room (D43): at most 2/3 of the window, clear all included,
+ * A stack taller than its room: at most 2/3 of the window, clear all included,
  * the messages scrolling inside with faded edges where more is beyond, clear all at
  * the end and on screen. Keyboard, wheel, a new message while scrolled, the fade's
- * pixels and its timing. Under a header like aesweets' (4.25rem, 68 px) at the top.
+ * pixels and its timing. Under a sticky header (4.25rem, 68 px) at the top.
  */
 import { expect } from '@playwright/test';
 import { close, MULTI_LINE, open, POSITIONS, test } from './helpers.js';
@@ -40,7 +40,7 @@ const add = async (page, from, to, kind = 'neutral') => {
 
 /**
  * The page didn't scroll along. Only where the browser has overscroll-behavior: not in
- * Safari before 16 (one of aesweets' targets) nor in Playwright's WebKit for Windows,
+ * Safari before 16 nor in Playwright's WebKit for Windows,
  * where the wheel goes on to the page at the list's end.
  */
 async function pageStayed(page, testInfo) {
@@ -246,11 +246,11 @@ for (const { name, attribute, sign } of POSITIONS) {
       await pageStayed(page, testInfo);
     });
 
-    // Plan §7 N20, a trade-off kept: the list's box reaches past the messages (its
+    // A trade-off kept: the list's box reaches past the messages (its
     // padding, room for the glow and the slide-in), so while it scrolls and takes the
     // pointer (the wheel test above) a band around the messages does too: under a sticky
-    // header like aesweets', 20 px of the header. Letting the pointer through instead made
-    // the wheel fall through a gap to the page in Chromium and WebKit (review of scroll-stack).
+    // header, 20 px of the header. Letting the pointer through instead made
+    // the wheel fall through a gap to the page in Chromium and WebKit (found in review).
     test('at rest the page around and between the messages takes the pointer; while it scrolls, the list box does', async ({
       page,
     }) => {
@@ -398,7 +398,7 @@ for (const { name, attribute, sign } of POSITIONS) {
       expect(seen.bottom).toBeLessThanOrEqual(seen.list[1]);
     });
 
-    // Plan §7 N12 / aesweets D43: 12 messages in a 420 px window, Tab through all.
+    // 12 messages in a 420 px window, Tab through all.
     test('Tab brings every cross fully into sight, out of the fades and from under clear all', async ({
       page,
     }) => {
