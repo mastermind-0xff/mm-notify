@@ -138,6 +138,11 @@ From the performance check (2026-11-18):
   at each change, so each laid the page out (one to three times): 100 `update`s in a row
   took 7 ms in Chrome, 100 `log` lines 12 to 16 ms; now under 1 ms each. Whether the reader
   had scrolled the log up is read before the frame's first new line.
+- **Messages whose time runs out together close together**, in one change of the page,
+  as Clear all does: a message's timer takes with it every message due within the next
+  16 ms (a frame), which would otherwise follow in tasks of their own, each laying the page
+  out. So a message may close up to 16 ms early. 50 messages shown together closed in
+  34 ms of work in Chrome, now 4 ms.
 
 ## 0.0.0 (unreleased)
 

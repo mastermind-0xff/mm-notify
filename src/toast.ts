@@ -121,6 +121,8 @@ interface Shown extends ToastHandle {
   readonly item: HTMLElement;
   /** Starts or stops its timer, for what holds it now. */
   readonly sync: () => void;
+  /** When its timer closes it (`performance.now()`); `Infinity` while it doesn't run. */
+  due: number;
   /** Kind and text, as they are now: what a repeat has in common with it. */
   key: string;
   /**
@@ -524,6 +526,7 @@ export function toast(
     item,
     sync() {
       clearTimeout(timer);
+      entry.due = Infinity;
       if (
         duration > 0 &&
         !holds &&
@@ -531,11 +534,20 @@ export function toast(
         item.isConnected &&
         !entry.closed &&
         (!config.sequential || shown[0] === entry)
-      )
+      ) {
+        entry.due = performance.now() + duration;
         timer = setTimeout(() => {
-          close(entry);
+          // With the others due within a frame: messages that came together go together,
+          // in one change of the page, not one each (their timers would follow at once;
+          // their times differ by the microseconds between their `sync` calls).
+          const soon = performance.now() + 16;
+          close(
+            ...shown.filter((other) => other === entry || other.due <= soon)
+          );
         }, duration);
+      }
     },
+    due: Infinity,
     key: '',
     again(announce, time) {
       // Until closed (0 or less) is the longest: a repeat never shortens a message.

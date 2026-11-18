@@ -2575,6 +2575,29 @@ describe('perf: layouts forced by reading after a change', () => {
     expect(showing()).toEqual([]);
   });
 
+  it('lays out twice for the messages whose time runs out together', () => {
+    for (let at = 0; at < 50; at += 1) toast(`Message ${String(at)}`);
+    toast('Later', 'neutral', { timeoutMs: 6000 });
+    nextFrame();
+    expect(
+      forced(() => {
+        vi.advanceTimersByTime(5000);
+      })
+    ).toBe(2);
+    expect(texts()).toEqual(['Later']);
+  });
+
+  it('closes with it a message due within a frame, not one due later', () => {
+    toast('Now', 'success');
+    toast('In 10 ms', 'success', { timeoutMs: 5010 });
+    toast('In 20 ms', 'success', { timeoutMs: 5020 });
+    nextFrame();
+    vi.advanceTimersByTime(5000);
+    expect(texts()).toEqual(['In 20 ms']);
+    vi.advanceTimersByTime(20);
+    expect(texts()).toEqual([]);
+  });
+
   it('lays out a changing message once a frame, however many changes', () => {
     const job = toast('Working', 'neutral', { timeoutMs: 0 });
     nextFrame();
