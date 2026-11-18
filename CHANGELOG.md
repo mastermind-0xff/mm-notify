@@ -132,6 +132,12 @@ From the performance check (2026-11-18):
   Chrome on a page of 1500 paragraphs: 200 messages in one frame took 215 ms, now 38 ms;
   Clear all of 200 took 648 ms, now 21 ms (50: 64 ms, now 8 ms). Closing one message lays
   out once, not twice (Clear all's label is no longer written again on every change).
+- **Changing a message** (`update`, `replace`, `progress`, `log`, the words that follow a
+  change of voice): the height a message still growing grows to, and a log's newest line
+  in sight, are set at the next frame, once for all the changes until then. They were read
+  at each change, so each laid the page out (one to three times): 100 `update`s in a row
+  took 7 ms in Chrome, 100 `log` lines 12 to 16 ms; now under 1 ms each. Whether the reader
+  had scrolled the log up is read before the frame's first new line.
 
 ## 0.0.0 (unreleased)
 

@@ -408,6 +408,10 @@ export function toast(
   let now = text;
   /** The words (with their kind) waiting to follow a change of voice. */
   let later: ReturnType<typeof setTimeout> | undefined;
+  /** Whether its log was at its end before the frame's first new line; unread: unset. */
+  let atEnd: boolean | undefined;
+  /** A frame is asked for, to settle the changes (`grow`). */
+  let settling = false;
   /**
    * Shows the kind and the words as they are now. The text node is always a new one:
    * a change screen readers read from a live region. An error that is read out is an
@@ -464,7 +468,7 @@ export function toast(
       if (lines?.contains(document.activeElement)) button.focus();
       bar?.remove();
       lines?.remove();
-      bar = lines = undefined;
+      bar = lines = atEnd = undefined;
     }
     button.setAttribute(
       'aria-label',
@@ -483,10 +487,25 @@ export function toast(
     );
     return changed();
   };
-  /** A message still growing grows to its contents now (an overestimate is harmless). */
+  /**
+   * A message still growing grows to its contents (an overestimate is harmless), and a
+   * log at its end shows its newest line. At the next frame, once for all the changes
+   * until then: read at each, the browser would lay the message out at each. Before
+   * its first frame, `arrive` does both.
+   */
   const grow = (): void => {
-    if (item.isConnected)
-      item.style.setProperty('--mm-notify-height', `${item.scrollHeight}px`);
+    if (settling || !item.isConnected) return;
+    settling = true;
+    requestAnimationFrame(() => {
+      settling = false;
+      if (entry.closed) return;
+      if (lines && atEnd) lines.scrollTop = lines.scrollHeight;
+      atEnd = undefined;
+      item.style.setProperty(
+        '--mm-notify-height',
+        `${String(item.scrollHeight)}px`
+      );
+    });
   };
   /** After any change: grow to it, and start the time over. */
   const changed = (): Shown => {
@@ -595,15 +614,15 @@ export function toast(
         item.append(lines);
       }
       // At its end (or new): stays at its end, the newest in sight. Scrolled up: stays.
-      const atEnd =
-        lines.scrollTop + lines.clientHeight >= lines.scrollHeight - 2;
+      if (item.isConnected)
+        atEnd ??=
+          lines.scrollTop + lines.clientHeight >= lines.scrollHeight - 2;
       const row = document.createElement('div');
       row.textContent = line;
       lines.append(row);
       // At least the newest: 0 or less would empty it, and below 0 never stop.
       while (lines.childElementCount > Math.max(1, config.logLines))
         lines.firstElementChild?.remove();
-      if (atEnd) lines.scrollTop = lines.scrollHeight;
       return changed();
     },
   };

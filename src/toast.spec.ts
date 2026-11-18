@@ -1948,6 +1948,8 @@ describe('handle.update', () => {
     const item = items()[0]!;
     vi.spyOn(item, 'scrollHeight', 'get').mockReturnValue(120);
     job.log('A line that makes it taller');
+    // At the frame, once for all the changes until then (the performance check).
+    nextFrame();
     expect(item.style.getPropertyValue('--mm-notify-height')).toBe('120px');
     vi.restoreAllMocks();
   });
@@ -2261,11 +2263,47 @@ describe('handle.log', () => {
     nextFrame();
     log().scrollTop = 10; // at the end
     job.log('4');
+    nextFrame(); // once a frame, for all the lines until then (the performance check)
     expect(log().scrollTop).toBe(80);
     log().scrollTop = 5; // the reader went up
     job.log('5');
+    nextFrame();
     expect(log().scrollTop).toBe(5);
     vi.restoreAllMocks();
+  });
+
+  it('takes where the reader was before the first line of a frame, for all its lines', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(50);
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
+      function (this: Element) {
+        return 20 * this.childElementCount;
+      }
+    );
+    const job = toast('Deploying…').log('1').log('2').log('3');
+    nextFrame();
+    log().scrollTop = 10; // at the end; the next lines would leave it behind
+    job.log('4').log('5').log('6');
+    nextFrame();
+    expect(log().scrollTop).toBe(120);
+    log().scrollTop = 5; // the reader went up
+    job.log('7').log('8');
+    nextFrame();
+    expect(log().scrollTop).toBe(5);
+    // A new log (`replace`, then `log`) is at its end again.
+    job.replace('Again').log('1');
+    nextFrame();
+    expect(log().scrollTop).toBe(20);
+    vi.restoreAllMocks();
+  });
+
+  it('changes nothing at the frame for a message closed before it', () => {
+    const job = toast('Deploying…');
+    nextFrame();
+    const item = items()[0]!;
+    job.log('A line');
+    job.close();
+    nextFrame();
+    expect(item.style.getPropertyValue('--mm-notify-height')).toBe('');
   });
 
   it('shows the newest of the lines logged before its frame', () => {
@@ -2535,5 +2573,22 @@ describe('perf: layouts forced by reading after a change', () => {
       })
     ).toBe(1);
     expect(showing()).toEqual([]);
+  });
+
+  it('lays out a changing message once a frame, however many changes', () => {
+    const job = toast('Working', 'neutral', { timeoutMs: 0 });
+    nextFrame();
+    // One where its log is, before the frame's first line; one in the frame.
+    expect(
+      forced(() => {
+        for (let step = 0; step < 100; step += 1)
+          job
+            .update(`Step ${String(step)}`)
+            .progress(step / 100)
+            .log(`Line ${String(step)}`);
+        nextFrame();
+      })
+    ).toBe(2);
+    expect(texts()).toEqual(['Step 99']);
   });
 });
