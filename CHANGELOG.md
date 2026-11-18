@@ -2,179 +2,68 @@
 
 ## Unreleased
 
-From the security check (2026-11-18):
+First release. Small on-page notifications that cost nothing until the first
+message: the code and its CSS load together, on first use. It started as the
+notifications of aesweets.com.
 
-- A `timeoutMs` or `durations` value of 2^31 ms or more, `Infinity` included, keeps the
-  message until closed. It closed at once: browsers take a timer's delay as a 32-bit
-  number, so `Infinity` became 0 and 2^31 wrapped around to a negative.
-- `showFlash` takes only the four kinds from storage. A key that a page's own JS added to
-  `configure({ durations })` was taken too, and showed with no icon and no look.
-- `configure` with options parsed from JSON: a `"__proto__"` key no longer becomes the
-  settings' prototype (no global pollution before either).
+### Messages
 
-From the user's answer to aesweets.com D49 (2026-11-14: "It should be possible to update
-the notification"):
+- `toast(text, kind, options)` shows a message of one of four kinds: `success`,
+  `error`, `alert`, `neutral`. Plain text only (`textContent`, DOM APIs, no
+  `innerHTML`), so it passes Trusted Types. Default times: 5 s for success and
+  neutral, 8 s for alert, 10 s for error; `timeoutMs: 0` or `Infinity` keeps a
+  message until it is closed, as does any time too long for a browser's timer (from
+  2^31 ms, about 24.8 days). The time runs only while neither the pointer nor the
+  focus is on the message.
+- `toast` returns a `ToastHandle` to change the message while it is up: `update`
+  (new words, a new kind), `replace` (new contents altogether), `progress` (a bar
+  from 0 to 1, or unknown), `log` (console-like lines under the text), `close`, and
+  `closed` and `whenClosed`. Work in the background is one message from start to
+  outcome. A closed message never comes back.
+- The same kind and text as a message on screen shows no second message: the one up
+  starts over, and is read out again. `configure({ repeats: true })` shows every
+  call. A message with a progress bar is never such a match.
+- `configure({ sequential: true })` runs one timer at a time, oldest message first.
+- From three messages a **Clear all** button appears (`clearAllFrom`,
+  `clearAllLabel`). A tall stack scrolls inside `--notify-max-height`, with faded
+  edges where more is beyond them.
+- `flash(text, kind, key)` leaves a message for the next page in `sessionStorage`;
+  `showFlash(key)` shows it once. The stored value is treated as untrusted: only its
+  text is shown, as text, and only the four kinds are taken (anything else is
+  neutral). Failing storage loses the message without throwing.
+- `configure` changes the defaults: `closeLabel`, `clearAllLabel`,
+  `clearAllFrom`, `durations`, `repeats`, `sequential`, `logLines`, `injectCss`.
+  The settings have no prototype, so options parsed from JSON can't give them one
+  with a `"__proto__"` key.
 
-- **`toast()` returns a handle** (`ToastHandle`); code that ignores it works as before.
-  `update(text, kind?, options?)` changes the words (and the kind), keeping a bar and a
-  log; `replace(text, kind?, options?)` changes everything, as `toast()` would show it, in
-  place; `progress(value, text?)` shows a progress bar (0 to 1, `true` for an unknown
-  amount, `false` to remove it); `log(line)` adds a console-like line (the newest in sight,
-  scrolling inside the message, `configure({ logLines })` kept, 100 by default, at least
-  1: review, 0 emptied the log and a negative number hung the page);
-  `close()`; `closed`; `whenClosed`, a promise. An empty text returns a closed handle.
-- **The time:** while a bar shows the message doesn't time out; every other change starts
-  its time over. `update` keeps the time unless the kind changes (that kind's default) or
-  `timeoutMs` is given; `replace` takes the kind's default.
-- **Closed is closed:** after the reader (or the time, or Clear all) closed a message,
-  every method does nothing; it never comes back.
-- **Screen readers:** an update of the words alone is silent unless `announce: true`; a new
-  kind and `replace` are read out unless `announce: false`. Before its first frame a
-  message keeps the announcement it came with (review: a first update there silenced an
-  announced message). A message on screen that was silent and is read out again (a new
-  kind, `replace`, `announce: true`, an announced repeat) joins the live region first,
-  and its kind and words follow 100 ms later, as aesweets' status lines do (N24,
-  2026-11-15: no screen reader was at hand to check the change in one step); changes in
-  between go into those words. The bar is a named
-  `role="progressbar"` (`aria-valuenow`, none while the amount is unknown,
-  `aria-valuetext` when given), never announced; the log is a `role="log"` with
-  `aria-live="off"`, focusable to scroll. Reduced motion: no gliding fill, a bar with no
-  amount stands still.
-- **The focus after closing** (the user's N27, 2026-11-15): a message that closes with the
-  focus in it (its cross, or `close()` from code while the reader is on its cross or in
-  its log) gives the focus back to where it came into the notifications from (the page's
-  element that had it before), if that is still on the page and focusable; otherwise it
-  falls to the page as before. Before, the focus fell to `body` when the message was
-  removed, for the cross too. `replace` keeps the focus in the message. From the review:
-  one such element for the whole stack, not one per message (a focus that came through
-  another message went back into it, and from there to `body`); a keyboard's focus comes
-  into sight, a pointer's click on the cross doesn't move the page (`:focus-visible`;
-  always `preventScroll` had left a keyboard's focus on a button scrolled out of sight);
-  Clear all gives the focus back too when it goes with the focus on it (its own click, or
-  too few messages left; before, the focus fell to `body`, also before this release).
-- **Repeats:** a repeat that shows no message returns the handle of the one on screen and
-  compares with what it says now; an update never merges two messages. A message with a
-  progress bar is never a repeat target (the user's N23, 2026-11-15): the same text shows a
-  message of its own, so two pieces of work never share one outcome; equal messages
-  without a bar still show once.
-- **New token** `--notify-log-height` (`8.4em`, six lines). A message is `flex-wrap: wrap`
-  now (the bar and the log take a row each); nothing else changes for a message without
-  them.
-- **Forced colors:** the progress bar and the close cross take the text's system color
-  (review: both are backgrounds, which forced colors give the page's color, so both
-  vanished; the cross did before this release too). The message box has a transparent
-  1px outline, which forced colors draw as its edge (the user's N26, 2026-11-15: its color
-  and glow are gone there, so its words stood on the page's content); nothing shows
-  without forced colors. A log's panel is a lighter veil
-  (white at 20 %), which keeps 4.5:1 on every default color (review: the darker one took
-  the error red to 4.25:1).
-- `npm run size`: 4556 B (was 3438 B; 4302 B before the review's fixes, 4346 B after
-  them, 4494 B with the user's answers N23, N24, N26 and N27, 4556 B with their review's
-  focus fixes). The guard is 4800 B (was 3500 B): the user lifted the limit, since the
-  package loads on first use (2026-11-15); the guard only catches accidental growth. One
-  entry, no separate `@mmutils/notify/progress`.
+### Loading
 
-From the user's answers to the aesweets.com questions (2026-11-09, D43, D47):
+- No side effects on import and no DOM access until the first call; it imports
+  cleanly on the server.
+- `@mmutils/notify/has-flash` exports `hasFlash(key)` alone, in a file that imports
+  nothing: the one thing a page loads eagerly, to find out whether a flash is waiting.
+- The CSS arrives with the module, as a constructable stylesheet (a strict
+  `style-src` doesn't block it) with a `<style>` fallback for browsers without one,
+  which needs `'unsafe-inline'` under a CSP. `@mmutils/notify/notify.css`
+  is the plain file, `@mmutils/notify/css` exports it as a minified string, and
+  `configure({ injectCss: false })` leaves the loading to the page.
+- About 4.5 KB minified and gzipped with its CSS, 123 B for the eager check. ESM and
+  CommonJS builds with type declarations; no runtime dependencies.
 
-- **The stack scrolls again, with faded edges** (replaces the pinned Clear all below): the
-  stack, Clear all included, is at most `--notify-max-height` tall (`66.67vh`, `66.67dvh`
-  where the browser has `dvh`, so Chrome before 108 and Firefox 100 get a limit too).
-  Taller, the messages scroll inside it and Clear all stays at its end. An edge with
-  messages beyond it fades out over `--notify-fade` (`2rem`), smoothly where `@property`
-  exists; an edge with nothing beyond never fades. No scrollbar; wheel and touch scroll the
-  list (also over the gaps while it scrolls: then the list's box takes the pointer, a band
-  of 1–1.5rem around the messages included, which a click on the page there doesn't get
-  through), `overscroll-behavior: contain`. Tab brings a cross out of sight fully into view,
-  clear of the fades and of Clear all; the arrow keys scroll from a focused cross. A new
-  message scrolls the list back to its start, unless the keyboard focus or the pointer is
-  in the list (the pointer: so that its message doesn't move away under a click).
-  **Removed:** `--notify-pin-bottom`, `--notify-pin-top`, the classes `.mm-notify-pinned`
-  and `.mm-notify-up`. **Back:** `--notify-max-height` (its default is new: 2/3 of the
-  window). The region no longer spans to the far edge, so either `--notify-flow` works from
-  either edge again.
-- **A message has no 40vh limit of its own:** a long one is shown whole and the list
-  scrolls, instead of cutting it.
-- **Above popovers opened later:** a new message (or a repeat) after a popover opened over
-  the messages raises the region again, without replaying any animation, keeping the focus
-  and the scroll. Sites that hid and showed the region themselves can drop that.
-- **`@mmutils/notify/css`:** exports `css`, the minified CSS string the package injects,
-  for a site's own checks or build. Its own entry, so it adds nothing to the others.
-- **`announce: false` no longer uses `aria-hidden`** (axe `aria-hidden-focus`: it hid a
-  focusable close button). The message's box is `aria-live="off"` instead: out of the live
-  region, not announced when it appears, still in the accessibility tree and the Tab order
-  with its named close button. An announced repeat of it joins the live region (an error as
-  `role="alert"`) and is read. Announced messages are unchanged.
-- `npm run size`: 3438 B, guard raised from 3100 to 3500 B (the user's decision).
+### Look and accessibility
 
-From the aesweets.com integration review (2026-11-08):
-
-- **Default durations:** alert closes after 8 s and error after 10 s, so nothing stays until
-  closed by default. `timeoutMs: 0`, or `0` in `configure({ durations })`, still keeps one.
-- **`configure({ repeats })`, default `false`:** the same kind and text as a message still on
-  screen shows no second message; the one on screen starts over with the longer of the two
-  times (`0` the longest, so a repeat never shortens it) and is read out again unless the
-  repeat has `announce: false`, also when it was shown unannounced. `true` shows every call,
-  as before. `showFlash` follows the same rule.
-- **Clear all is pinned when the stack doesn't fit the window** (replaced the next day by the scrolling stack above): a full row at the far edge
-  (bottom for the top positions, top for the bottom positions), over the messages. The stack
-  no longer scrolls. Measured with a `ResizeObserver` and `resize`, so browsers without `dvh`
-  (Chrome before 108, Firefox before 101) keep the button on screen too. New tokens
-  `--notify-pin-bottom` and `--notify-pin-top` (default `0`) move that edge, for a fixed footer
-  or header. **Removed:** `--notify-max-height`, which nothing reads any more. The region now
-  spans from where the stack starts to the far edge (it lets the pointer through), so
-  `--notify-flow` also decides the edge: `column` hangs from `--notify-top`, `column-reverse`
-  stands on `--notify-bottom` (read only there). The other two pairs worked before and don't
-  now. The bottom positions keep their 1.5rem below the newest message, now the list's padding.
-- **Fixed:** under a site's global `box-sizing: border-box` a new message grew to its height
-  without the padding, its text cut off, then snapped to its full size and moved the stack.
-  A message is `box-sizing: content-box` now, whatever the site sets.
-- `npm run size`: 3049 B, guard raised from 2800 to 3100 B.
-
-## 0.0.0 (unreleased)
-
-Nothing released yet. The plan is in `.claude/plan.md` (local).
-
-Extracted from the aesweets.com rebuild (`client/toast.ts`, `components/toast.css`):
-
-- `toast`, `flash`, `showFlash`, `configure` in `@mmutils/notify`; `hasFlash` alone
-  in `@mmutils/notify/has-flash`, so a page can ask without loading the rest.
-- The CSS arrives with the module, as a constructable stylesheet with a `<style>`
-  fallback, built from `src/notify.css` (also shipped as
-  `@mmutils/notify/notify.css`). `--notify-*` custom properties for colors, glow and
-  position; `mm-notify` class names.
-- `npm run size`: 2755 B minified and gzipped with the CSS, 123 B for the eager
-  check, which loads no other chunk.
-- `examples/`: a page to try the kinds, positions and options under a strict CSP
-  (`npm run examples`), and a design tool that exports CSS, settings or a brief for an
-  agent (`examples/design.html`).
-
-Changed against the original:
-
-- Alert and error stay until closed by default (they closed after 8 s and 10 s).
-- The same text again shows a second message. It replaced the first.
-- `configure({ sequential: true })`: one timer at a time, oldest message first, and a
-  message that stays until closed holds those behind it.
-- A clear-all button from three messages, which fades in and out (`clearAllFrom`,
-  `clearAllLabel`, `--notify-clear`, `--notify-clear-color`).
-- A new message comes in at the start of the stack, on top at the top and at the bottom
-  at the bottom (`--notify-flow`), and grows into place, so the whole stack moves
-  smoothly. It was always added at the end, and the stack jumped.
-- Messages that don't fit the window scroll, so the newest and the button stay on screen.
-  They ran off it. The live region is now `.mm-notify-list`, inside the popover.
-- A closing message shrinks from its real height to 0 in 0.3 s, its contents gone in the
-  first 0.1 s, and is removed at 0.35 s, always. It went at the first `transitionend`, the
-  opacity's at 0.2 s, cutting the collapse short.
-- In the bottom positions a lower message paints over the glow of the one above it, as in
-  the top positions. In Firefox and WebKit that glow tinted its top edge.
-
-Fixed against the original, each with a test that failed first, except the last
-(CSS layout, reproduced in Chrome by turning the rule off):
-
-- Browsers without popover threw a SyntaxError. A plain fixed element works now.
-- A stale timer could close a message while hovered, and moving the pointer away
-  while it had focus (or the other way round) closed it. It counts down now only when
-  nothing holds it.
-- A malformed flash stayed in storage, so every page loaded the module for nothing.
-- A removal landing just before a new message's frame closed the popover, so the new
-  message went into a hidden region.
-- A long e-mail pushed the close cross out of a narrow box (seen in Chrome).
+- Colors, glow, position, width, the stack's height, radius, font size, a log's
+  height and the clear-all button are `--notify-*` custom properties, each read
+  with its default, so one set on `:root` wins in any cascade order. Top center is
+  the default; corners, a position under a fixed header and a bottom stack are
+  CSS-only changes (`--notify-flow`). Class names keep the `mm-notify` prefix.
+- A manual popover, so messages sit in the top layer, above menus opened before them
+  and raised again above those opened later. A browser without popover gets a plain
+  fixed element and nothing throws.
+- A polite live region created once; errors are `role="alert"`; `announce: false`
+  keeps a message out of the live region (it still has its named close button). The
+  progress bar is a `role="progressbar"`, the log a `role="log"`. Default colors keep
+  4.5:1 with their dark text. Reduced motion and forced colors are respected. A
+  closing message gives the focus back to where it came from.
+- The repository's design tool exports a look as CSS, as settings or as a brief for an
+  agent.

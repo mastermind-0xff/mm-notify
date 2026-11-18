@@ -4,7 +4,7 @@ Small on-page notifications for the browser. Four kinds, plain text, and one
 message carried across a redirect. Built to cost nothing until it is used: the
 code and its CSS arrive with the first message.
 
-- 4.3 KB minified and gzipped, CSS included. No dependencies.
+- About 4.5 KB minified and gzipped, CSS included. No dependencies.
 - A message can change while it is up: new words or a new kind, a progress bar, a
   console-like log. Work in the background is tracked in one message that becomes
   its outcome.
@@ -16,8 +16,29 @@ code and its CSS arrive with the first message.
   a plain fixed element and nothing throws.
 - A live region for screen readers, `role="alert"` for errors, DOM APIs only (passes
   Trusted Types).
+- Look and position are `--notify-*` custom properties. ESM and CommonJS, with type
+  declarations.
 
-Work in progress: nothing is published yet.
+## Install
+
+```sh
+npm install @mmutils/notify
+```
+
+Requirements:
+
+- **Browsers:** Chrome 100, Firefox 100, Safari 15.4 and newer (the CSS is minified for
+  these). Browsers with popover add the top layer (Chrome 114, Firefox 125,
+  Safari 17); older ones get a plain fixed element, see [Browsers](#browsers).
+- **Node.js 22 or newer** to import it on a server (server-side rendering, a shared
+  module). There is nothing to show there: `toast` needs a document.
+
+| Entry                        | Holds                                                            |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `@mmutils/notify`            | `toast`, `flash`, `showFlash`, `configure`, the types            |
+| `@mmutils/notify/has-flash`  | `hasFlash`: stands alone, for the code that loads eagerly        |
+| `@mmutils/notify/css`        | `css`: the package's minified CSS as a string                    |
+| `@mmutils/notify/notify.css` | the plain CSS file, to bundle yourself (see [The CSS](#the-css)) |
 
 ## Use it on first use
 
@@ -231,8 +252,8 @@ Every way the work can end must reach the message: a bar holds it until its outc
 so a request that throws and never says so leaves it up (its cross still closes it).
 
 The package has no network code: where the updates come from is the page's business
-(`fetch`, `EventSource`, a `WebSocket`, a worker). `npm run examples` has all three of
-these against a pretend backend.
+(`fetch`, `EventSource`, a `WebSocket`, a worker). The repository's example page (see
+[Examples](#examples)) has all three of these against a pretend backend.
 
 **The time.**
 
@@ -314,7 +335,7 @@ import { configure } from '@mmutils/notify';
 configure({
   closeLabel: 'Fermer',
   clearAllLabel: 'Tout effacer',
-  durations: { error: 10_000 }, // errors close by themselves after 10 s
+  durations: { error: 0 }, // errors stay until closed
   sequential: true,
   injectCss: false, // only if the page loads the CSS itself, see "The CSS"
 });
@@ -322,16 +343,16 @@ configure({
 export { flash, showFlash, toast } from '@mmutils/notify';
 ```
 
-| Option          | Default             | Meaning                                                           |
-| --------------- | ------------------- | ----------------------------------------------------------------- |
-| `closeLabel`    | `Close the message` | The close button's label, for screen readers.                     |
-| `clearAllLabel` | `Clear all`         | The clear-all button's text.                                      |
-| `clearAllFrom`  | `3`                 | How many messages bring up that button. `0` or `Infinity`: never. |
-| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.       |
-| `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.    |
-| `sequential`    | `false`             | One timer at a time, see below.                                   |
-| `logLines`      | `100`               | How many lines a message's log keeps (`log()`), at least 1.       |
-| `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".        |
+| Option          | Default             | Meaning                                                                      |
+| --------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `closeLabel`    | `Close the message` | The close button's label, for screen readers.                                |
+| `clearAllLabel` | `Clear all`         | The clear-all button's text.                                                 |
+| `clearAllFrom`  | `3`                 | How many messages bring up that button. `0` or `Infinity`: never.            |
+| `durations`     | see `toast`         | Milliseconds on screen per kind. `0` keeps it until closed.                  |
+| `repeats`       | `false`             | The same kind and text again shows a new message, see `toast`.               |
+| `sequential`    | `false`             | One timer at a time, see below.                                              |
+| `logLines`      | `100`               | How many lines a message's log keeps (`log()`), at least 1; `Infinity`: all. |
+| `injectCss`     | `true`              | `false` when the page loads the CSS itself, see "The CSS".                   |
 
 **`sequential`:** normally every message counts down at once. With `true` one timer
 runs at a time, oldest message first: three messages of 5 s close at 5, 10 and 15 s. A
@@ -456,9 +477,7 @@ loads no toast code.
 
 ## Size
 
-`npm run size` measures what a page pays, bundled by esbuild, and fails above the
-budgets (4800 B for the package, a guard against accidental growth; 200 B for the eager
-check) or when the eager code would load another chunk. It also imports the built files on Node.
+What a page pays, bundled by esbuild and minified for the browsers above:
 
 | What                      | Minified | Gzip | Brotli |
 | ------------------------- | -------- | ---- | ------ |
@@ -467,53 +486,36 @@ check) or when the eager code would load another chunk. It also imports the buil
 | Eager: `hasFlash`         | 115      | 123  | 119    |
 | Imported, not used        | 0        | 20   | 1      |
 
-The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
-The scrolling stack with its fades, the raise above later popovers and the `dvh` fallback
-took the package from 3049 B to 3438 B; the guard went from 3100 to 3500 B on the user's word
-("3500 is fine", on their earlier "size is not crucial": it loads on first use). The
-changing messages took it to 4346 B (the handle about 300 B, the progress bar and the log
-about 590 B, CSS included; 44 B of that from their review: forced colors, the voice
-before the frame), and the guard to 4350 B. The user then lifted the limit (2026-11-15:
-the package loads on first use), so it stays one entry (a separate one for the bar and the
-log would have kept the main one near 3800 B and cost about 1 KB where they are used), and
-the guard went to 4600 B, there only to catch accidental growth. The user's answers of
-that day (a barred message is no repeat target, a silent message's words following its
-joining the live region, the box's edge under forced colors, the focus given back on
-closing) took it to 4494 B, and their review's focus fixes (one origin for the stack, a
-keyboard's focus brought into sight, Clear all giving the focus back) to 4556 B; the
-guard is 4800 B, so that it keeps catching growth without a raise at every change.
+Bytes. The last row is an empty file: 20 and 1 are what gzip and brotli make of nothing.
+The progress bar and the log are part of the one entry, not a separate one: a split would
+keep the main entry near 3.8 KB but cost about 1 KB more wherever they are used.
 
-## As a `file:` dependency
-
-Nothing is on npm yet. In the consuming project's `package.json`, with the path
-relative to it:
-
-```json
-{ "dependencies": { "@mmutils/notify": "file:../mm-notify" } }
-```
-
-`dist` isn't in git, so run `npm install` and `npm run build` here first. npm links
-the folder, so a later build is picked up without installing again.
+In a clone of the repository, `npm run size` measures this, fails above the budgets
+(4800 B for the package, a guard against accidental growth; 200 B for the eager check)
+or when the eager code would load another chunk, and imports the built files on Node.
 
 ## Examples
 
+The repository has an example page, which is not part of the package. In a clone:
+
 ```sh
+npm install
 npm run examples
 ```
 
-Builds the package and serves `examples/` at http://localhost:5179/examples/ with a
+It builds the package and serves `examples/` at http://localhost:5179/examples/ with a
 strict CSP: all kinds, `timeoutMs` and `announce`, work in the background (a progress bar
 polled with `fetch`, log lines from an `EventSource`, a slow request turned into its
 outcome, against a pretend backend in `examples/jobs.js`), repeats, sequential timers,
 clear all, positions, a dark look, the flash across a reload, a message above an open menu
 and a simulated browser without popover.
 
-## Design tool
+### Design tool
 
-`npm run examples`, then http://localhost:5179/examples/design.html. It changes real
-messages at their real position, through what a site would set, and shows the contrast
-of each color as you go. Position, colors, glow, shape, type, spacing, clear all and the
-timers. It remembers your design in the browser until you go back to the defaults.
+With the examples running, open http://localhost:5179/examples/design.html. It changes
+real messages at their real position, through what a site would set, and shows the
+contrast of each color as you go. Position, colors, glow, shape, type, spacing, clear all
+and the timers. It remembers your design in the browser until you go back to the defaults.
 
 When the design is approved, export what differs from the defaults:
 
@@ -528,6 +530,23 @@ When the design is approved, export what differs from the defaults:
 Its defaults are read from `dist/notify.css` and `config`, and it warns when the CSS has a
 custom property it has no control for.
 
+## Development
+
+```sh
+npm install
+npm run check          # prettier, eslint, tsc, vitest
+npm run build          # dist/esm, dist/cjs, dist/types, dist/notify.css
+npm run size           # what a page pays, with budgets
+npm run test:browsers  # Playwright, in real browsers (npx playwright install first)
+```
+
+## AI use
+
+@mmutils/notify is developed with AI assistance: most of the code, tests and
+documentation was written with AI. The author designs the features, makes the decisions
+and reviews the changes, and every change passes the same checks (formatting, lint,
+strict type checking and tests) before it is committed.
+
 ## License
 
-MIT
+[MIT](LICENSE)

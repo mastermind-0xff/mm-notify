@@ -320,8 +320,8 @@ for (const { name, attribute, sign } of POSITIONS) {
 
     // Frames on time: several steps, and nothing left. WebKit here skips frames (gaps of 70 to 300 ms, with
     // Chromium at 16 ms in the same run), and a loaded machine may too. Then the removal can
-    // cut the transition short: a known artifact of the fixed timer, left on the user's
-    // decision (plan §7 N10), so this only keeps a record of it.
+    // cut the transition short: a known artifact of the fixed timer, accepted, so this
+    // only keeps a record of it.
     const gaps = frames.slice(1).map((f, i) => f.at - frames[i].at);
     const worst = Math.max(...gaps);
     testInfo.annotations.push({

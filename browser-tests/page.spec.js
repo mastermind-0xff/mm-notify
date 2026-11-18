@@ -170,7 +170,7 @@ test.describe('top layer', () => {
     });
   });
 
-  // aesweets D47 (a): the top layer stacks by opening order. The package opens its
+  // The top layer stacks by opening order. The package opens its
   // region again for a new message, which replays nothing: it is display: flex closed.
   test('a new message comes above a popover menu opened after the messages, replaying none', async ({
     page,
@@ -327,7 +327,7 @@ test.describe('top layer', () => {
   });
 });
 
-// aesweets D42: an unannounced message (announce: false) is no live region of its own,
+// An unannounced message (announce: false) is no live region of its own,
 // which takes it out of the list's, instead of aria-hidden over its focusable close button.
 test.describe('announce: false', () => {
   const MIXED = [
@@ -459,7 +459,7 @@ test.describe('announce: false', () => {
     await page.evaluate(() =>
       window.t.toast('Failed.', 'error', { timeoutMs: 0 })
     );
-    // Live at once; the alert comes with its words, 100 ms later (N24).
+    // Live at once; the alert comes with its words, 100 ms later.
     expect((await attributes())[0]).toBeNull();
     await expect.poll(attributes).toEqual([null, 'alert']);
     expect(await page.locator('.mm-notify').count()).toBe(1);
