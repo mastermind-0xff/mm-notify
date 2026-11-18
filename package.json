@@ -1,6 +1,6 @@
 {
   "name": "@mmutils/notify",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Small on-page notifications: four kinds, a live region, a flash across redirects. Loaded on first use, with its CSS in the module and no dependencies.",
   "keywords": [
     "notification",

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 First release. Small on-page notifications that cost nothing until the first
 message: the code and its CSS load together, on first use. It started as the
