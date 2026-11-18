@@ -29,7 +29,7 @@ notifications of aesweets.com.
 - `flash(text, kind, key)` leaves a message for the next page in `sessionStorage`;
   `showFlash(key)` shows it once. The stored value is treated as untrusted, and
   failing storage loses the message without throwing.
-- `configure` changes the defaults once: `closeLabel`, `clearAllLabel`,
+- `configure` changes the defaults: `closeLabel`, `clearAllLabel`,
   `clearAllFrom`, `durations`, `repeats`, `sequential`, `logLines`, `injectCss`.
 
 ### Loading
@@ -47,11 +47,11 @@ notifications of aesweets.com.
 
 ### Look and accessibility
 
-- Colors, glow, position, width, height, radius, font size, the log and the
-  clear-all button are `--notify-*` custom properties, each read with its default,
-  so one set on `:root` wins in any cascade order. Top center is the default;
-  corners, a position under a fixed header and a bottom stack are CSS-only changes
-  (`--notify-flow`). Class names keep the `mm-notify` prefix.
+- Colors, glow, position, width, the stack's height, radius, font size, a log's
+  height and the clear-all button are `--notify-*` custom properties, each read
+  with its default, so one set on `:root` wins in any cascade order. Top center is
+  the default; corners, a position under a fixed header and a bottom stack are
+  CSS-only changes (`--notify-flow`). Class names keep the `mm-notify` prefix.
 - A manual popover, so messages sit in the top layer, above menus opened before them
   and raised again above those opened later. A browser without popover gets a plain
   fixed element and nothing throws.

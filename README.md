@@ -335,7 +335,7 @@ import { configure } from '@mmutils/notify';
 configure({
   closeLabel: 'Fermer',
   clearAllLabel: 'Tout effacer',
-  durations: { error: 10_000 }, // errors close by themselves after 10 s
+  durations: { error: 0 }, // errors stay until closed
   sequential: true,
   injectCss: false, // only if the page loads the CSS itself, see "The CSS"
 });
